@@ -4,9 +4,9 @@
 
 use std::sync::Arc;
 
-use crate::error::Result;
 use super::transport::Transport;
 use super::types::*;
+use crate::error::Result;
 
 /// A CDP connection to Chrome
 pub struct Connection {
@@ -28,52 +28,67 @@ impl Connection {
 
     /// Get browser version info
     pub async fn version(&self) -> Result<BrowserGetVersionResult> {
-        self.transport.send("Browser.getVersion", &BrowserGetVersion {}).await
+        self.transport
+            .send("Browser.getVersion", &BrowserGetVersion {})
+            .await
     }
 
     /// Set discover targets to receive target events
     pub async fn set_discover_targets(&self, discover: bool) -> Result<()> {
-        self.transport.send::<_, serde_json::Value>(
-            "Target.setDiscoverTargets",
-            &TargetSetDiscoverTargets { discover }
-        ).await?;
+        self.transport
+            .send::<_, serde_json::Value>(
+                "Target.setDiscoverTargets",
+                &TargetSetDiscoverTargets { discover },
+            )
+            .await?;
         Ok(())
     }
 
     /// Get list of available targets
     pub async fn get_targets(&self) -> Result<Vec<TargetInfo>> {
-        let result: TargetGetTargetsResult = self.transport.send(
-            "Target.getTargets",
-            &TargetGetTargets {}
-        ).await?;
+        let result: TargetGetTargetsResult = self
+            .transport
+            .send("Target.getTargets", &TargetGetTargets {})
+            .await?;
         Ok(result.target_infos)
     }
 
     /// Create a new target (tab)
-    pub async fn create_target(&self, url: &str, width: Option<u32>, height: Option<u32>) -> Result<String> {
-        let result: TargetCreateTargetResult = self.transport.send(
-            "Target.createTarget",
-            &TargetCreateTarget {
-                url: url.to_string(),
-                width,
-                height,
-                browser_context_id: None,
-                new_window: None,
-                background: None,
-            }
-        ).await?;
+    pub async fn create_target(
+        &self,
+        url: &str,
+        width: Option<u32>,
+        height: Option<u32>,
+    ) -> Result<String> {
+        let result: TargetCreateTargetResult = self
+            .transport
+            .send(
+                "Target.createTarget",
+                &TargetCreateTarget {
+                    url: url.to_string(),
+                    width,
+                    height,
+                    browser_context_id: None,
+                    new_window: None,
+                    background: None,
+                },
+            )
+            .await?;
         Ok(result.target_id)
     }
 
     /// Attach to a target and get a session
     pub async fn attach_to_target(&self, target_id: &str) -> Result<Session> {
-        let result: TargetAttachToTargetResult = self.transport.send(
-            "Target.attachToTarget",
-            &TargetAttachToTarget {
-                target_id: target_id.to_string(),
-                flatten: Some(true),
-            }
-        ).await?;
+        let result: TargetAttachToTargetResult = self
+            .transport
+            .send(
+                "Target.attachToTarget",
+                &TargetAttachToTarget {
+                    target_id: target_id.to_string(),
+                    flatten: Some(true),
+                },
+            )
+            .await?;
 
         Ok(Session {
             transport: Arc::clone(&self.transport),
@@ -84,18 +99,24 @@ impl Connection {
 
     /// Close a target
     pub async fn close_target(&self, target_id: &str) -> Result<bool> {
-        let result: TargetCloseTargetResult = self.transport.send(
-            "Target.closeTarget",
-            &TargetCloseTarget {
-                target_id: target_id.to_string(),
-            }
-        ).await?;
+        let result: TargetCloseTargetResult = self
+            .transport
+            .send(
+                "Target.closeTarget",
+                &TargetCloseTarget {
+                    target_id: target_id.to_string(),
+                },
+            )
+            .await?;
         Ok(result.success)
     }
 
     /// Close the browser
     pub async fn close(&self) -> Result<()> {
-        let _ = self.transport.send::<_, serde_json::Value>("Browser.close", &BrowserClose {}).await;
+        let _ = self
+            .transport
+            .send::<_, serde_json::Value>("Browser.close", &BrowserClose {})
+            .await;
         self.transport.close().await
     }
 }
@@ -124,7 +145,9 @@ impl Session {
         C: serde::Serialize,
         R: serde::de::DeserializeOwned,
     {
-        self.transport.send_to_session(&self.session_id, method, params).await
+        self.transport
+            .send_to_session(&self.session_id, method, params)
+            .await
     }
 
     // =========================================================================
@@ -133,72 +156,92 @@ impl Session {
 
     /// Enable page events
     pub async fn page_enable(&self) -> Result<()> {
-        self.send::<_, serde_json::Value>("Page.enable", &PageEnable {}).await?;
+        self.send::<_, serde_json::Value>("Page.enable", &PageEnable {})
+            .await?;
         Ok(())
     }
 
     /// Navigate to a URL
     pub async fn navigate(&self, url: &str) -> Result<PageNavigateResult> {
-        self.send("Page.navigate", &PageNavigate {
-            url: url.to_string(),
-            referrer: None,
-            transition_type: None,
-            frame_id: None,
-        }).await
+        self.send(
+            "Page.navigate",
+            &PageNavigate {
+                url: url.to_string(),
+                referrer: None,
+                transition_type: None,
+                frame_id: None,
+            },
+        )
+        .await
     }
 
     /// Reload the page
     pub async fn reload(&self, ignore_cache: bool) -> Result<()> {
-        self.send::<_, serde_json::Value>("Page.reload", &PageReload {
-            ignore_cache: Some(ignore_cache),
-            script_to_evaluate_on_load: None,
-        }).await?;
+        self.send::<_, serde_json::Value>(
+            "Page.reload",
+            &PageReload {
+                ignore_cache: Some(ignore_cache),
+                script_to_evaluate_on_load: None,
+            },
+        )
+        .await?;
         Ok(())
     }
 
     /// Go back in history
     pub async fn go_back(&self) -> Result<()> {
-        self.send::<_, serde_json::Value>("Page.goBack", &PageGoBack {}).await?;
+        self.send::<_, serde_json::Value>("Page.goBack", &PageGoBack {})
+            .await?;
         Ok(())
     }
 
     /// Go forward in history
     pub async fn go_forward(&self) -> Result<()> {
-        self.send::<_, serde_json::Value>("Page.goForward", &PageGoForward {}).await?;
+        self.send::<_, serde_json::Value>("Page.goForward", &PageGoForward {})
+            .await?;
         Ok(())
     }
 
     /// Add a script to evaluate on every new document
     pub async fn add_script_to_evaluate_on_new_document(&self, source: &str) -> Result<String> {
-        let result: PageAddScriptToEvaluateOnNewDocumentResult = self.send(
-            "Page.addScriptToEvaluateOnNewDocument",
-            &PageAddScriptToEvaluateOnNewDocument {
-                source: source.to_string(),
-                world_name: None,
-                include_command_line_api: None,
-            }
-        ).await?;
+        let result: PageAddScriptToEvaluateOnNewDocumentResult = self
+            .send(
+                "Page.addScriptToEvaluateOnNewDocument",
+                &PageAddScriptToEvaluateOnNewDocument {
+                    source: source.to_string(),
+                    world_name: None,
+                    include_command_line_api: None,
+                },
+            )
+            .await?;
         Ok(result.identifier)
     }
 
     /// Bypass Content Security Policy
     pub async fn set_bypass_csp(&self, enabled: bool) -> Result<()> {
-        self.send::<_, serde_json::Value>("Page.setBypassCSP", &PageSetBypassCSP { enabled }).await?;
+        self.send::<_, serde_json::Value>("Page.setBypassCSP", &PageSetBypassCSP { enabled })
+            .await?;
         Ok(())
     }
 
     /// Capture a screenshot
-    pub async fn capture_screenshot(&self, format: Option<&str>, quality: Option<u8>) -> Result<Vec<u8>> {
-        let result: PageCaptureScreenshotResult = self.send(
-            "Page.captureScreenshot",
-            &PageCaptureScreenshot {
-                format: format.map(String::from),
-                quality,
-                clip: None,
-                from_surface: None,
-                capture_beyond_viewport: None,
-            }
-        ).await?;
+    pub async fn capture_screenshot(
+        &self,
+        format: Option<&str>,
+        quality: Option<u8>,
+    ) -> Result<Vec<u8>> {
+        let result: PageCaptureScreenshotResult = self
+            .send(
+                "Page.captureScreenshot",
+                &PageCaptureScreenshot {
+                    format: format.map(String::from),
+                    quality,
+                    clip: None,
+                    from_surface: None,
+                    capture_beyond_viewport: None,
+                },
+            )
+            .await?;
 
         use base64::Engine;
         let bytes = base64::engine::general_purpose::STANDARD
@@ -209,10 +252,8 @@ impl Session {
 
     /// Get the frame tree
     pub async fn get_frame_tree(&self) -> Result<FrameTree> {
-        let result: PageGetFrameTreeResult = self.send(
-            "Page.getFrameTree",
-            &PageGetFrameTree {}
-        ).await?;
+        let result: PageGetFrameTreeResult =
+            self.send("Page.getFrameTree", &PageGetFrameTree {}).await?;
         Ok(result.frame_tree)
     }
 
@@ -243,8 +284,9 @@ impl Session {
                 delta_x: None,
                 delta_y: None,
                 pointer_type: None,
-            }
-        ).await?;
+            },
+        )
+        .await?;
         Ok(())
     }
 
@@ -273,8 +315,9 @@ impl Session {
                 is_keypad: None,
                 is_system_key: None,
                 location: None,
-            }
-        ).await?;
+            },
+        )
+        .await?;
         Ok(())
     }
 
@@ -284,8 +327,9 @@ impl Session {
             "Input.insertText",
             &InputInsertText {
                 text: text.to_string(),
-            }
-        ).await?;
+            },
+        )
+        .await?;
         Ok(())
     }
 
@@ -295,63 +339,73 @@ impl Session {
 
     /// Get the document root node
     pub async fn get_document(&self, depth: Option<i32>) -> Result<DOMNode> {
-        let result: DOMGetDocumentResult = self.send(
-            "DOM.getDocument",
-            &DOMGetDocument {
-                depth,
-                pierce: Some(true),
-            }
-        ).await?;
+        let result: DOMGetDocumentResult = self
+            .send(
+                "DOM.getDocument",
+                &DOMGetDocument {
+                    depth,
+                    pierce: Some(true),
+                },
+            )
+            .await?;
         Ok(result.root)
     }
 
     /// Query for a single element
     pub async fn query_selector(&self, node_id: i32, selector: &str) -> Result<i32> {
-        let result: DOMQuerySelectorResult = self.send(
-            "DOM.querySelector",
-            &DOMQuerySelector {
-                node_id,
-                selector: selector.to_string(),
-            }
-        ).await?;
+        let result: DOMQuerySelectorResult = self
+            .send(
+                "DOM.querySelector",
+                &DOMQuerySelector {
+                    node_id,
+                    selector: selector.to_string(),
+                },
+            )
+            .await?;
         Ok(result.node_id)
     }
 
     /// Query for all matching elements
     pub async fn query_selector_all(&self, node_id: i32, selector: &str) -> Result<Vec<i32>> {
-        let result: DOMQuerySelectorAllResult = self.send(
-            "DOM.querySelectorAll",
-            &DOMQuerySelectorAll {
-                node_id,
-                selector: selector.to_string(),
-            }
-        ).await?;
+        let result: DOMQuerySelectorAllResult = self
+            .send(
+                "DOM.querySelectorAll",
+                &DOMQuerySelectorAll {
+                    node_id,
+                    selector: selector.to_string(),
+                },
+            )
+            .await?;
         Ok(result.node_ids)
     }
 
     /// Get the box model for an element
     pub async fn get_box_model(&self, node_id: i32) -> Result<BoxModel> {
-        let result: DOMGetBoxModelResult = self.send(
-            "DOM.getBoxModel",
-            &DOMGetBoxModel {
-                node_id: Some(node_id),
-                backend_node_id: None,
-                object_id: None,
-            }
-        ).await?;
+        let result: DOMGetBoxModelResult = self
+            .send(
+                "DOM.getBoxModel",
+                &DOMGetBoxModel {
+                    node_id: Some(node_id),
+                    backend_node_id: None,
+                    object_id: None,
+                },
+            )
+            .await?;
         Ok(result.model)
     }
 
     /// Get outer HTML of an element
     pub async fn get_outer_html(&self, node_id: i32) -> Result<String> {
-        let result: DOMGetOuterHTMLResult = self.send(
-            "DOM.getOuterHTML",
-            &DOMGetOuterHTML {
-                node_id: Some(node_id),
-                backend_node_id: None,
-                object_id: None,
-            }
-        ).await?;
+        let result: DOMGetOuterHTMLResult = self
+            .send(
+                "DOM.getOuterHTML",
+                &DOMGetOuterHTML {
+                    node_id: Some(node_id),
+                    backend_node_id: None,
+                    object_id: None,
+                },
+            )
+            .await?;
         Ok(result.outer_html)
     }
 
@@ -363,8 +417,9 @@ impl Session {
                 node_id: Some(node_id),
                 backend_node_id: None,
                 object_id: None,
-            }
-        ).await?;
+            },
+        )
+        .await?;
         Ok(())
     }
 
@@ -374,10 +429,9 @@ impl Session {
 
     /// Get all cookies
     pub async fn get_cookies(&self, urls: Option<Vec<String>>) -> Result<Vec<Cookie>> {
-        let result: NetworkGetCookiesResult = self.send(
-            "Network.getCookies",
-            &NetworkGetCookies { urls }
-        ).await?;
+        let result: NetworkGetCookiesResult = self
+            .send("Network.getCookies", &NetworkGetCookies { urls })
+            .await?;
         Ok(result.cookies)
     }
 
@@ -390,25 +444,32 @@ impl Session {
         domain: Option<&str>,
         path: Option<&str>,
     ) -> Result<bool> {
-        let result: NetworkSetCookieResult = self.send(
-            "Network.setCookie",
-            &NetworkSetCookie {
-                name: name.to_string(),
-                value: value.to_string(),
-                url: url.map(String::from),
-                domain: domain.map(String::from),
-                path: path.map(String::from),
-                secure: None,
-                http_only: None,
-                same_site: None,
-                expires: None,
-            }
-        ).await?;
+        let result: NetworkSetCookieResult = self
+            .send(
+                "Network.setCookie",
+                &NetworkSetCookie {
+                    name: name.to_string(),
+                    value: value.to_string(),
+                    url: url.map(String::from),
+                    domain: domain.map(String::from),
+                    path: path.map(String::from),
+                    secure: None,
+                    http_only: None,
+                    same_site: None,
+                    expires: None,
+                },
+            )
+            .await?;
         Ok(result.success)
     }
 
     /// Delete cookies
-    pub async fn delete_cookies(&self, name: &str, url: Option<&str>, domain: Option<&str>) -> Result<()> {
+    pub async fn delete_cookies(
+        &self,
+        name: &str,
+        url: Option<&str>,
+        domain: Option<&str>,
+    ) -> Result<()> {
         self.send::<_, serde_json::Value>(
             "Network.deleteCookies",
             &NetworkDeleteCookies {
@@ -416,8 +477,9 @@ impl Session {
                 url: url.map(String::from),
                 domain: domain.map(String::from),
                 path: None,
-            }
-        ).await?;
+            },
+        )
+        .await?;
         Ok(())
     }
 
@@ -430,25 +492,29 @@ impl Session {
                 max_total_buffer_size: None,
                 max_resource_buffer_size: None,
                 max_post_data_size: Some(65536), // Capture POST data up to 64KB
-            }
-        ).await?;
+            },
+        )
+        .await?;
         Ok(())
     }
 
     /// Disable network events
     pub async fn network_disable(&self) -> Result<()> {
-        self.send::<_, serde_json::Value>("Network.disable", &NetworkDisable {}).await?;
+        self.send::<_, serde_json::Value>("Network.disable", &NetworkDisable {})
+            .await?;
         Ok(())
     }
 
     /// Get response body for a request
     pub async fn get_response_body(&self, request_id: &str) -> Result<(String, bool)> {
-        let result: NetworkGetResponseBodyResult = self.send(
-            "Network.getResponseBody",
-            &NetworkGetResponseBody {
-                request_id: request_id.to_string(),
-            }
-        ).await?;
+        let result: NetworkGetResponseBodyResult = self
+            .send(
+                "Network.getResponseBody",
+                &NetworkGetResponseBody {
+                    request_id: request_id.to_string(),
+                },
+            )
+            .await?;
         Ok((result.body, result.base64_encoded))
     }
 
@@ -476,7 +542,8 @@ impl Session {
                 disable_breaks: None,
                 repl_mode: None,
                 allow_unsafe_eval_blocked_by_csp: None,
-            }
-        ).await
+            },
+        )
+        .await
     }
 }

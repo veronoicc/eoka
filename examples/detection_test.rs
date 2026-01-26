@@ -11,7 +11,7 @@ async fn main() -> Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::from_default_env()
-                .add_directive("eoka=info".parse().unwrap())
+                .add_directive("eoka=info".parse().unwrap()),
         )
         .init();
 
@@ -73,7 +73,8 @@ async fn main() -> Result<()> {
 
     // Test 2: areyouheadless
     println!("\n--- Test 2: arh.antoinevastel.com ---\n");
-    page.goto("https://arh.antoinevastel.com/bots/areyouheadless").await?;
+    page.goto("https://arh.antoinevastel.com/bots/areyouheadless")
+        .await?;
     page.wait(2000).await;
 
     let screenshot = page.screenshot().await?;
@@ -86,7 +87,10 @@ async fn main() -> Result<()> {
     } else if result_text.to_lowercase().contains("you are") {
         println!("Result: FAIL - Detected as headless");
     } else {
-        println!("Result text: {}", &result_text[..result_text.len().min(500)]);
+        println!(
+            "Result text: {}",
+            &result_text[..result_text.len().min(500)]
+        );
     }
 
     // Test 3: Incolumitas Bot Detector
@@ -120,7 +124,8 @@ async fn main() -> Result<()> {
 
     // Test 4: CreepJS (comprehensive fingerprinting)
     println!("\n--- Test 4: CreepJS ---\n");
-    page.goto("https://abrahamjuliot.github.io/creepjs/").await?;
+    page.goto("https://abrahamjuliot.github.io/creepjs/")
+        .await?;
     page.wait(8000).await; // CreepJS takes a while to run all tests
 
     let screenshot = page.screenshot().await?;
@@ -181,8 +186,9 @@ async fn main() -> Result<()> {
     std::fs::write("browserleaks.png", screenshot)?;
     println!("Screenshot saved to browserleaks.png");
 
-    let browserleaks_result: String = page.evaluate(
-        r#"
+    let browserleaks_result: String = page
+        .evaluate(
+            r#"
         (() => {
             // Check for webdriver detection
             const rows = document.querySelectorAll('tr');
@@ -194,8 +200,10 @@ async fn main() -> Result<()> {
             }
             return 'Check screenshot for detailed results';
         })()
-        "#
-    ).await.unwrap_or_else(|_| "Check screenshot".to_string());
+        "#,
+        )
+        .await
+        .unwrap_or_else(|_| "Check screenshot".to_string());
     println!("{}", browserleaks_result);
 
     // Clean up

@@ -7,11 +7,11 @@ use std::sync::Arc;
 
 use tokio::sync::{mpsc, Mutex};
 
-use crate::cdp::types::{
-    NetworkRequestWillBeSentEvent,
-    NetworkResponseReceivedEvent, NetworkLoadingFinishedEvent, NetworkLoadingFailedEvent,
-};
 use crate::cdp::transport::CdpMessage;
+use crate::cdp::types::{
+    NetworkLoadingFailedEvent, NetworkLoadingFinishedEvent, NetworkRequestWillBeSentEvent,
+    NetworkResponseReceivedEvent,
+};
 use crate::page::CapturedRequest;
 
 /// Network event types
@@ -67,25 +67,33 @@ impl NetworkWatcher {
         if let CdpMessage::Event { method, params, .. } = event {
             match method.as_str() {
                 "Network.requestWillBeSent" => {
-                    if let Ok(e) = serde_json::from_value::<NetworkRequestWillBeSentEvent>(params.clone()) {
+                    if let Ok(e) =
+                        serde_json::from_value::<NetworkRequestWillBeSentEvent>(params.clone())
+                    {
                         self.on_request_will_be_sent(e).await;
                         return true;
                     }
                 }
                 "Network.responseReceived" => {
-                    if let Ok(e) = serde_json::from_value::<NetworkResponseReceivedEvent>(params.clone()) {
+                    if let Ok(e) =
+                        serde_json::from_value::<NetworkResponseReceivedEvent>(params.clone())
+                    {
                         self.on_response_received(e).await;
                         return true;
                     }
                 }
                 "Network.loadingFinished" => {
-                    if let Ok(e) = serde_json::from_value::<NetworkLoadingFinishedEvent>(params.clone()) {
+                    if let Ok(e) =
+                        serde_json::from_value::<NetworkLoadingFinishedEvent>(params.clone())
+                    {
                         self.on_loading_finished(e).await;
                         return true;
                     }
                 }
                 "Network.loadingFailed" => {
-                    if let Ok(e) = serde_json::from_value::<NetworkLoadingFailedEvent>(params.clone()) {
+                    if let Ok(e) =
+                        serde_json::from_value::<NetworkLoadingFailedEvent>(params.clone())
+                    {
                         self.on_loading_failed(e).await;
                         return true;
                     }
@@ -111,7 +119,10 @@ impl NetworkWatcher {
         }
 
         // Send event
-        let _ = self.event_tx.send(NetworkEvent::RequestStarted(request)).await;
+        let _ = self
+            .event_tx
+            .send(NetworkEvent::RequestStarted(request))
+            .await;
     }
 
     async fn on_response_received(&self, event: NetworkResponseReceivedEvent) {
@@ -124,13 +135,16 @@ impl NetworkWatcher {
         }
 
         // Send event
-        let _ = self.event_tx.send(NetworkEvent::ResponseReceived {
-            request_id: event.request_id,
-            status: event.response.status,
-            status_text: event.response.status_text,
-            headers: event.response.headers,
-            mime_type: event.response.mime_type,
-        }).await;
+        let _ = self
+            .event_tx
+            .send(NetworkEvent::ResponseReceived {
+                request_id: event.request_id,
+                status: event.response.status,
+                status_text: event.response.status_text,
+                headers: event.response.headers,
+                mime_type: event.response.mime_type,
+            })
+            .await;
     }
 
     async fn on_loading_finished(&self, event: NetworkLoadingFinishedEvent) {
@@ -143,10 +157,13 @@ impl NetworkWatcher {
         }
 
         // Send event
-        let _ = self.event_tx.send(NetworkEvent::RequestCompleted {
-            request_id: event.request_id,
-            encoded_data_length: event.encoded_data_length,
-        }).await;
+        let _ = self
+            .event_tx
+            .send(NetworkEvent::RequestCompleted {
+                request_id: event.request_id,
+                encoded_data_length: event.encoded_data_length,
+            })
+            .await;
     }
 
     async fn on_loading_failed(&self, event: NetworkLoadingFailedEvent) {
@@ -157,11 +174,14 @@ impl NetworkWatcher {
         }
 
         // Send event
-        let _ = self.event_tx.send(NetworkEvent::RequestFailed {
-            request_id: event.request_id,
-            error_text: event.error_text,
-            canceled: event.canceled.unwrap_or(false),
-        }).await;
+        let _ = self
+            .event_tx
+            .send(NetworkEvent::RequestFailed {
+                request_id: event.request_id,
+                error_text: event.error_text,
+                canceled: event.canceled.unwrap_or(false),
+            })
+            .await;
     }
 
     /// Receive the next network event
@@ -203,14 +223,19 @@ impl NetworkWatcher {
     /// Get requests matching a URL pattern
     pub async fn get_requests_matching(&self, pattern: &str) -> Vec<CapturedRequest> {
         let requests = self.requests.lock().await;
-        requests.values()
+        requests
+            .values()
             .filter(|r| r.url.contains(pattern))
             .cloned()
             .collect()
     }
 
     /// Wait for a request matching a URL pattern
-    pub async fn wait_for_request(&self, pattern: &str, timeout_ms: u64) -> Option<CapturedRequest> {
+    pub async fn wait_for_request(
+        &self,
+        pattern: &str,
+        timeout_ms: u64,
+    ) -> Option<CapturedRequest> {
         let start = std::time::Instant::now();
         let timeout = std::time::Duration::from_millis(timeout_ms);
 
@@ -233,7 +258,11 @@ impl NetworkWatcher {
     }
 
     /// Wait for a request to complete
-    pub async fn wait_for_completion(&self, request_id: &str, timeout_ms: u64) -> Option<CapturedRequest> {
+    pub async fn wait_for_completion(
+        &self,
+        request_id: &str,
+        timeout_ms: u64,
+    ) -> Option<CapturedRequest> {
         let start = std::time::Instant::now();
         let timeout = std::time::Duration::from_millis(timeout_ms);
 

@@ -10,7 +10,7 @@ async fn main() -> Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::from_default_env()
-                .add_directive("eoka=info".parse().unwrap())
+                .add_directive("eoka=info".parse().unwrap()),
         )
         .init();
 
@@ -52,7 +52,9 @@ async fn main() -> Result<()> {
 
     // Try a POST request via JavaScript and capture it
     println!("Making a fetch request via JavaScript...");
-    let result: serde_json::Value = page.evaluate(r#"
+    let result: serde_json::Value = page
+        .evaluate(
+            r#"
         (async () => {
             const response = await fetch('https://httpbin.org/post', {
                 method: 'POST',
@@ -63,7 +65,9 @@ async fn main() -> Result<()> {
             });
             return await response.json();
         })()
-    "#).await?;
+    "#,
+        )
+        .await?;
 
     println!("POST response:");
     println!("{}\n", serde_json::to_string_pretty(&result)?);

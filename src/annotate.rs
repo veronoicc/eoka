@@ -91,8 +91,8 @@ pub struct AnnotationConfig {
 impl Default for AnnotationConfig {
     fn default() -> Self {
         Self {
-            box_color: [255, 0, 0, 200],         // Red with some transparency
-            label_bg_color: [255, 0, 0, 220],    // Red background
+            box_color: [255, 0, 0, 200],            // Red with some transparency
+            label_bg_color: [255, 0, 0, 220],       // Red background
             label_text_color: [255, 255, 255, 255], // White text
             line_thickness: 2,
             font_size: 14.0,
@@ -109,8 +109,8 @@ pub fn annotate_screenshot(
     config: &AnnotationConfig,
 ) -> Result<Vec<u8>, AnnotationError> {
     // Load image from PNG data
-    let img = image::load_from_memory(png_data)
-        .map_err(|e| AnnotationError::ImageLoad(e.to_string()))?;
+    let img =
+        image::load_from_memory(png_data).map_err(|e| AnnotationError::ImageLoad(e.to_string()))?;
     let mut rgba = img.to_rgba8();
 
     let box_color = Rgba(config.box_color);
@@ -142,7 +142,14 @@ pub fn annotate_screenshot(
         };
 
         // Draw label background
-        draw_filled_rect(&mut rgba, label_x, label_y, label_width, label_height, label_bg);
+        draw_filled_rect(
+            &mut rgba,
+            label_x,
+            label_y,
+            label_width,
+            label_height,
+            label_bg,
+        );
 
         // Draw label text using simple pixel font
         let text_x = label_x + config.label_padding;
@@ -162,25 +169,45 @@ pub fn annotate_screenshot(
 #[cfg(feature = "annotate")]
 const DIGIT_PATTERNS: [[u8; 7]; 10] = [
     // 0
-    [0b01110, 0b10001, 0b10011, 0b10101, 0b11001, 0b10001, 0b01110],
+    [
+        0b01110, 0b10001, 0b10011, 0b10101, 0b11001, 0b10001, 0b01110,
+    ],
     // 1
-    [0b00100, 0b01100, 0b00100, 0b00100, 0b00100, 0b00100, 0b01110],
+    [
+        0b00100, 0b01100, 0b00100, 0b00100, 0b00100, 0b00100, 0b01110,
+    ],
     // 2
-    [0b01110, 0b10001, 0b00001, 0b00110, 0b01000, 0b10000, 0b11111],
+    [
+        0b01110, 0b10001, 0b00001, 0b00110, 0b01000, 0b10000, 0b11111,
+    ],
     // 3
-    [0b01110, 0b10001, 0b00001, 0b00110, 0b00001, 0b10001, 0b01110],
+    [
+        0b01110, 0b10001, 0b00001, 0b00110, 0b00001, 0b10001, 0b01110,
+    ],
     // 4
-    [0b00010, 0b00110, 0b01010, 0b10010, 0b11111, 0b00010, 0b00010],
+    [
+        0b00010, 0b00110, 0b01010, 0b10010, 0b11111, 0b00010, 0b00010,
+    ],
     // 5
-    [0b11111, 0b10000, 0b11110, 0b00001, 0b00001, 0b10001, 0b01110],
+    [
+        0b11111, 0b10000, 0b11110, 0b00001, 0b00001, 0b10001, 0b01110,
+    ],
     // 6
-    [0b00110, 0b01000, 0b10000, 0b11110, 0b10001, 0b10001, 0b01110],
+    [
+        0b00110, 0b01000, 0b10000, 0b11110, 0b10001, 0b10001, 0b01110,
+    ],
     // 7
-    [0b11111, 0b00001, 0b00010, 0b00100, 0b01000, 0b01000, 0b01000],
+    [
+        0b11111, 0b00001, 0b00010, 0b00100, 0b01000, 0b01000, 0b01000,
+    ],
     // 8
-    [0b01110, 0b10001, 0b10001, 0b01110, 0b10001, 0b10001, 0b01110],
+    [
+        0b01110, 0b10001, 0b10001, 0b01110, 0b10001, 0b10001, 0b01110,
+    ],
     // 9
-    [0b01110, 0b10001, 0b10001, 0b01111, 0b00001, 0b00010, 0b01100],
+    [
+        0b01110, 0b10001, 0b10001, 0b01111, 0b00001, 0b00010, 0b01100,
+    ],
 ];
 
 /// Draw a number string using simple pixel font
@@ -208,14 +235,7 @@ fn draw_number_text(img: &mut RgbaImage, x: u32, y: u32, text: &str, color: Rgba
 
 /// Draw a filled rectangle
 #[cfg(feature = "annotate")]
-fn draw_filled_rect(
-    img: &mut RgbaImage,
-    x: u32,
-    y: u32,
-    width: u32,
-    height: u32,
-    color: Rgba<u8>,
-) {
+fn draw_filled_rect(img: &mut RgbaImage, x: u32, y: u32, width: u32, height: u32, color: Rgba<u8>) {
     for dy in 0..height {
         for dx in 0..width {
             let px = x + dx;
@@ -255,7 +275,7 @@ pub fn annotate_screenshot(
     _config: &AnnotationConfig,
 ) -> Result<Vec<u8>, AnnotationError> {
     Err(AnnotationError::ImageLoad(
-        "annotate feature not enabled - add `annotate` feature to Cargo.toml".to_string()
+        "annotate feature not enabled - add `annotate` feature to Cargo.toml".to_string(),
     ))
 }
 
@@ -297,7 +317,7 @@ mod tests {
         assert!(element.contains(150, 120));
         assert!(element.contains(100, 100)); // Edge
         assert!(element.contains(300, 150)); // Edge
-        assert!(!element.contains(50, 50));  // Outside
+        assert!(!element.contains(50, 50)); // Outside
         assert!(!element.contains(350, 120)); // Outside
     }
 

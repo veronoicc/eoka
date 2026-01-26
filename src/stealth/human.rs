@@ -9,7 +9,7 @@ use std::cell::RefCell;
 use std::time::Duration;
 use tokio::time::sleep;
 
-use crate::cdp::{Session, MouseEventType, MouseButton, KeyEventType};
+use crate::cdp::{KeyEventType, MouseButton, MouseEventType, Session};
 use crate::error::Result;
 
 // Thread-local RNG
@@ -141,12 +141,9 @@ impl<'a> Human<'a> {
 
         // Move through path
         for (x, y) in path {
-            self.session.dispatch_mouse_event(
-                MouseEventType::MouseMoved,
-                x, y,
-                None,
-                None,
-            ).await?;
+            self.session
+                .dispatch_mouse_event(MouseEventType::MouseMoved, x, y, None, None)
+                .await?;
             sleep(Duration::from_millis(random_range(min_delay, max_delay))).await;
         }
 
@@ -158,22 +155,28 @@ impl<'a> Human<'a> {
         let click_y = target_y + random_f64_range(-2.0, 2.0);
 
         // Mouse down
-        self.session.dispatch_mouse_event(
-            MouseEventType::MousePressed,
-            click_x, click_y,
-            Some(MouseButton::Left),
-            Some(1),
-        ).await?;
+        self.session
+            .dispatch_mouse_event(
+                MouseEventType::MousePressed,
+                click_x,
+                click_y,
+                Some(MouseButton::Left),
+                Some(1),
+            )
+            .await?;
 
         sleep(Duration::from_millis(random_range(50, 120))).await;
 
         // Mouse up
-        self.session.dispatch_mouse_event(
-            MouseEventType::MouseReleased,
-            click_x, click_y,
-            Some(MouseButton::Left),
-            Some(1),
-        ).await?;
+        self.session
+            .dispatch_mouse_event(
+                MouseEventType::MouseReleased,
+                click_x,
+                click_y,
+                Some(MouseButton::Left),
+                Some(1),
+            )
+            .await?;
 
         // Small delay after click
         sleep(Duration::from_millis(random_range(30, 100))).await;
@@ -186,21 +189,27 @@ impl<'a> Human<'a> {
         let click_x = x + random_f64_range(-1.0, 1.0);
         let click_y = y + random_f64_range(-1.0, 1.0);
 
-        self.session.dispatch_mouse_event(
-            MouseEventType::MousePressed,
-            click_x, click_y,
-            Some(MouseButton::Left),
-            Some(1),
-        ).await?;
+        self.session
+            .dispatch_mouse_event(
+                MouseEventType::MousePressed,
+                click_x,
+                click_y,
+                Some(MouseButton::Left),
+                Some(1),
+            )
+            .await?;
 
         sleep(Duration::from_millis(random_range(50, 100))).await;
 
-        self.session.dispatch_mouse_event(
-            MouseEventType::MouseReleased,
-            click_x, click_y,
-            Some(MouseButton::Left),
-            Some(1),
-        ).await?;
+        self.session
+            .dispatch_mouse_event(
+                MouseEventType::MouseReleased,
+                click_x,
+                click_y,
+                Some(MouseButton::Left),
+                Some(1),
+            )
+            .await?;
 
         Ok(())
     }
@@ -211,12 +220,9 @@ impl<'a> Human<'a> {
 
         for ch in text.chars() {
             // Type the character
-            self.session.dispatch_key_event(
-                KeyEventType::Char,
-                None,
-                Some(&ch.to_string()),
-                None,
-            ).await?;
+            self.session
+                .dispatch_key_event(KeyEventType::Char, None, Some(&ch.to_string()), None)
+                .await?;
 
             // Variable delay based on character
             let base_delay = if ch == ' ' {
@@ -228,7 +234,9 @@ impl<'a> Human<'a> {
             };
 
             // Occasional thinking pause
-            let delay = if matches!(self.speed, HumanSpeed::Normal | HumanSpeed::Slow) && random_bool(0.05) {
+            let delay = if matches!(self.speed, HumanSpeed::Normal | HumanSpeed::Slow)
+                && random_bool(0.05)
+            {
                 base_delay + random_range(200, 500)
             } else {
                 base_delay
@@ -239,27 +247,33 @@ impl<'a> Human<'a> {
             // Occasional typo (slow mode only)
             if matches!(self.speed, HumanSpeed::Slow) && random_bool(0.01) && text.len() > 10 {
                 let wrong_char = (b'a' + random_range(0, 26) as u8) as char;
-                self.session.dispatch_key_event(
-                    KeyEventType::Char,
-                    None,
-                    Some(&wrong_char.to_string()),
-                    None,
-                ).await?;
+                self.session
+                    .dispatch_key_event(
+                        KeyEventType::Char,
+                        None,
+                        Some(&wrong_char.to_string()),
+                        None,
+                    )
+                    .await?;
                 sleep(Duration::from_millis(random_range(100, 300))).await;
 
                 // Backspace
-                self.session.dispatch_key_event(
-                    KeyEventType::KeyDown,
-                    Some("Backspace"),
-                    None,
-                    Some("Backspace"),
-                ).await?;
-                self.session.dispatch_key_event(
-                    KeyEventType::KeyUp,
-                    Some("Backspace"),
-                    None,
-                    Some("Backspace"),
-                ).await?;
+                self.session
+                    .dispatch_key_event(
+                        KeyEventType::KeyDown,
+                        Some("Backspace"),
+                        None,
+                        Some("Backspace"),
+                    )
+                    .await?;
+                self.session
+                    .dispatch_key_event(
+                        KeyEventType::KeyUp,
+                        Some("Backspace"),
+                        None,
+                        Some("Backspace"),
+                    )
+                    .await?;
                 sleep(Duration::from_millis(random_range(50, 150))).await;
             }
         }
@@ -270,12 +284,9 @@ impl<'a> Human<'a> {
     /// Fast type without delays
     pub async fn fast_type(&self, text: &str) -> Result<()> {
         for ch in text.chars() {
-            self.session.dispatch_key_event(
-                KeyEventType::Char,
-                None,
-                Some(&ch.to_string()),
-                None,
-            ).await?;
+            self.session
+                .dispatch_key_event(KeyEventType::Char, None, Some(&ch.to_string()), None)
+                .await?;
             sleep(Duration::from_millis(random_range(5, 15))).await;
         }
         Ok(())
@@ -283,21 +294,15 @@ impl<'a> Human<'a> {
 
     /// Press a key
     pub async fn press_key(&self, key: &str) -> Result<()> {
-        self.session.dispatch_key_event(
-            KeyEventType::KeyDown,
-            Some(key),
-            None,
-            Some(key),
-        ).await?;
+        self.session
+            .dispatch_key_event(KeyEventType::KeyDown, Some(key), None, Some(key))
+            .await?;
 
         sleep(Duration::from_millis(random_range(50, 100))).await;
 
-        self.session.dispatch_key_event(
-            KeyEventType::KeyUp,
-            Some(key),
-            None,
-            Some(key),
-        ).await?;
+        self.session
+            .dispatch_key_event(KeyEventType::KeyUp, Some(key), None, Some(key))
+            .await?;
 
         Ok(())
     }
@@ -314,13 +319,15 @@ impl<'a> Human<'a> {
             // Use mouse wheel event
             // Note: actual scroll delta would need to be passed via Input.dispatchMouseEvent
             // with deltaX/deltaY params, but for now we just simulate the event
-            self.session.dispatch_mouse_event(
-                MouseEventType::MouseWheel,
-                random_f64_range(400.0, 800.0), // x position
-                random_f64_range(300.0, 600.0), // y position
-                None,
-                None,
-            ).await?;
+            self.session
+                .dispatch_mouse_event(
+                    MouseEventType::MouseWheel,
+                    random_f64_range(400.0, 800.0), // x position
+                    random_f64_range(300.0, 600.0), // y position
+                    None,
+                    None,
+                )
+                .await?;
 
             sleep(Duration::from_millis(random_range(30, 100))).await;
         }

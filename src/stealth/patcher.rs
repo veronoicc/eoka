@@ -36,18 +36,51 @@ enum PatchStrategy {
 
 /// All patterns to find and patch
 static PATCH_PATTERNS: &[PatchPattern] = &[
-    PatchPattern { pattern: b"$cdc_", strategy: PatchStrategy::RandomizePrefix },
-    PatchPattern { pattern: b"cdc_", strategy: PatchStrategy::RandomizePrefix },
-    PatchPattern { pattern: b"webdriver", strategy: PatchStrategy::Scramble },
-    PatchPattern { pattern: b"--enable-automation", strategy: PatchStrategy::Nullify },
-    PatchPattern { pattern: b"devtoolsw", strategy: PatchStrategy::Scramble },
-    PatchPattern { pattern: b"debuggerPrivate", strategy: PatchStrategy::Scramble },
-    PatchPattern { pattern: b"HeadlessChrome", strategy: PatchStrategy::Scramble },
-    PatchPattern { pattern: b"$wdc_", strategy: PatchStrategy::RandomizePrefix },
-    PatchPattern { pattern: b"$chromeDriver", strategy: PatchStrategy::RandomizePrefix },
+    PatchPattern {
+        pattern: b"$cdc_",
+        strategy: PatchStrategy::RandomizePrefix,
+    },
+    PatchPattern {
+        pattern: b"cdc_",
+        strategy: PatchStrategy::RandomizePrefix,
+    },
+    PatchPattern {
+        pattern: b"webdriver",
+        strategy: PatchStrategy::Scramble,
+    },
+    PatchPattern {
+        pattern: b"--enable-automation",
+        strategy: PatchStrategy::Nullify,
+    },
+    PatchPattern {
+        pattern: b"devtoolsw",
+        strategy: PatchStrategy::Scramble,
+    },
+    PatchPattern {
+        pattern: b"debuggerPrivate",
+        strategy: PatchStrategy::Scramble,
+    },
+    PatchPattern {
+        pattern: b"HeadlessChrome",
+        strategy: PatchStrategy::Scramble,
+    },
+    PatchPattern {
+        pattern: b"$wdc_",
+        strategy: PatchStrategy::RandomizePrefix,
+    },
+    PatchPattern {
+        pattern: b"$chromeDriver",
+        strategy: PatchStrategy::RandomizePrefix,
+    },
     // Detection only
-    PatchPattern { pattern: b"Runtime.enable", strategy: PatchStrategy::Skip },
-    PatchPattern { pattern: b"Page.addScriptToEvaluateOnNewDocument", strategy: PatchStrategy::Skip },
+    PatchPattern {
+        pattern: b"Runtime.enable",
+        strategy: PatchStrategy::Skip,
+    },
+    PatchPattern {
+        pattern: b"Page.addScriptToEvaluateOnNewDocument",
+        strategy: PatchStrategy::Skip,
+    },
 ];
 
 /// Compiled pattern matcher (lazy initialized)
@@ -109,7 +142,10 @@ impl ChromePatcher {
     /// Create a new patcher for the given Chrome binary
     pub fn new(chrome_path: &Path) -> Result<Self> {
         if !chrome_path.exists() {
-            return Err(Error::patching("new", format!("Chrome binary not found: {:?}", chrome_path)));
+            return Err(Error::patching(
+                "new",
+                format!("Chrome binary not found: {:?}", chrome_path),
+            ));
         }
 
         #[cfg(target_os = "macos")]
@@ -126,14 +162,14 @@ impl ChromePatcher {
             }
 
             if let Some(bundle) = bundle_path {
-                let bundle_name = bundle.file_name()
+                let bundle_name = bundle
+                    .file_name()
                     .ok_or_else(|| Error::patching("new", "Invalid bundle path"))?;
 
-                let patched_bundle = std::env::temp_dir()
-                    .join("eoka-chrome")
-                    .join(bundle_name);
+                let patched_bundle = std::env::temp_dir().join("eoka-chrome").join(bundle_name);
 
-                let relative_path = chrome_path.strip_prefix(&bundle)
+                let relative_path = chrome_path
+                    .strip_prefix(&bundle)
                     .map_err(|_| Error::patching("new", "Binary not inside bundle"))?;
                 let patched_path = patched_bundle.join(relative_path);
 
@@ -151,9 +187,7 @@ impl ChromePatcher {
             .file_name()
             .ok_or_else(|| Error::patching("new", "Invalid path"))?;
 
-        let patched_path = std::env::temp_dir()
-            .join("eoka-chrome")
-            .join(filename);
+        let patched_path = std::env::temp_dir().join("eoka-chrome").join(filename);
 
         Ok(Self {
             original_path: chrome_path.to_path_buf(),
@@ -179,9 +213,7 @@ impl ChromePatcher {
             .ok();
 
         match (orig_modified, patched_modified) {
-            (Some(orig), Some(patched)) if patched > orig => {
-                self.verify_patched_sample()
-            }
+            (Some(orig), Some(patched)) if patched > orig => self.verify_patched_sample(),
             _ => false,
         }
     }
@@ -221,7 +253,10 @@ impl ChromePatcher {
             fs::create_dir_all(parent)?;
         }
 
-        tracing::info!("Creating Chrome bundle with symlinks at {:?}...", dest_bundle);
+        tracing::info!(
+            "Creating Chrome bundle with symlinks at {:?}...",
+            dest_bundle
+        );
         self.copy_bundle_with_symlinks(orig_bundle, dest_bundle)?;
 
         Ok(())
@@ -297,7 +332,10 @@ impl ChromePatcher {
         let file_size = fs::metadata(read_path)?.len() as usize;
 
         let patch_count = if file_size > 10 * 1024 * 1024 {
-            tracing::debug!("Using memory-mapped patching for {}MB file", file_size / 1024 / 1024);
+            tracing::debug!(
+                "Using memory-mapped patching for {}MB file",
+                file_size / 1024 / 1024
+            );
             self.patch_with_mmap(read_path)?
         } else {
             tracing::debug!("Using in-memory patching for {}KB file", file_size / 1024);
@@ -319,7 +357,11 @@ impl ChromePatcher {
             self.codesign()?;
         }
 
-        tracing::info!("Patched {} occurrences, saved to {:?}", patch_count, self.patched_path);
+        tracing::info!(
+            "Patched {} occurrences, saved to {:?}",
+            patch_count,
+            self.patched_path
+        );
 
         Ok(())
     }
@@ -357,7 +399,11 @@ impl ChromePatcher {
         if data.len() != original_len {
             return Err(Error::patching(
                 "patch_in_memory",
-                format!("Binary size changed during patching: {} -> {}", original_len, data.len()),
+                format!(
+                    "Binary size changed during patching: {} -> {}",
+                    original_len,
+                    data.len()
+                ),
             ));
         }
 
@@ -383,7 +429,10 @@ impl ChromePatcher {
             let start = m.start();
             let end = m.end();
 
-            if patched_ranges.iter().any(|(ps, pe)| start < *pe && end > *ps) {
+            if patched_ranges
+                .iter()
+                .any(|(ps, pe)| start < *pe && end > *ps)
+            {
                 continue;
             }
 
@@ -409,8 +458,11 @@ impl ChromePatcher {
                     patched_ranges.push((start, end));
                 }
                 PatchStrategy::Skip => {
-                    tracing::trace!("Found (not patching): {:?} at offset {}",
-                        String::from_utf8_lossy(pattern.pattern), start);
+                    tracing::trace!(
+                        "Found (not patching): {:?} at offset {}",
+                        String::from_utf8_lossy(pattern.pattern),
+                        start
+                    );
                 }
             }
         }
@@ -426,12 +478,12 @@ impl ChromePatcher {
     fn codesign(&self) -> Result<()> {
         use std::process::Command;
 
-        let sign_path = self.patched_bundle.as_ref()
-            .unwrap_or(&self.patched_path);
+        let sign_path = self.patched_bundle.as_ref().unwrap_or(&self.patched_path);
 
         tracing::info!("Re-signing {:?} with ad-hoc signature...", sign_path);
 
-        let sign_str = sign_path.to_str()
+        let sign_str = sign_path
+            .to_str()
             .ok_or_else(|| Error::patching("codesign", "Invalid UTF-8 in sign path"))?;
 
         let _ = Command::new("codesign")

@@ -3,8 +3,8 @@
 //! These replace the massive chromiumoxide-generated types with a minimal set
 //! that's just enough for stealth browser automation.
 
-use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 // ============================================================================
 // Target Domain - Tab/Target Management
@@ -679,7 +679,7 @@ pub struct DOMGetBoxModelResult {
 #[serde(rename_all = "camelCase")]
 pub struct BoxModel {
     #[serde(default)]
-    pub content: Vec<f64>,  // [x1, y1, x2, y2, x3, y3, x4, y4] - quad
+    pub content: Vec<f64>, // [x1, y1, x2, y2, x3, y3, x4, y4] - quad
     #[serde(default)]
     pub padding: Vec<f64>,
     #[serde(default)]

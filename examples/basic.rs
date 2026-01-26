@@ -13,7 +13,7 @@ async fn main() -> Result<()> {
 
     // Launch browser with visible window for demo
     let config = StealthConfig {
-        headless: false,  // Show the browser
+        headless: false, // Show the browser
         ..Default::default()
     };
 
@@ -39,7 +39,10 @@ async fn main() -> Result<()> {
 
     // Get page text
     let text = page.text().await?;
-    println!("Page text (first 200 chars): {}", &text[..text.len().min(200)]);
+    println!(
+        "Page text (first 200 chars): {}",
+        &text[..text.len().min(200)]
+    );
 
     // Take a screenshot
     let screenshot = page.screenshot().await?;

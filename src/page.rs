@@ -5,8 +5,8 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use crate::cdp::{Session, Cookie, MouseEventType, MouseButton};
 use crate::cdp::types::{NetworkRequest, NetworkResponse};
+use crate::cdp::{Cookie, MouseButton, MouseEventType, Session};
 use crate::error::{Error, Result};
 use crate::stealth::{Human, HumanSpeed};
 use crate::StealthConfig;
@@ -121,7 +121,10 @@ impl Page {
 
     /// Get page HTML content
     pub async fn content(&self) -> Result<String> {
-        let result = self.session.evaluate("document.documentElement.outerHTML").await?;
+        let result = self
+            .session
+            .evaluate("document.documentElement.outerHTML")
+            .await?;
         if let Some(value) = result.result.value {
             if let Some(s) = value.as_str() {
                 return Ok(s.to_string());
@@ -152,7 +155,9 @@ impl Page {
 
     /// Capture a screenshot as JPEG with quality
     pub async fn screenshot_jpeg(&self, quality: u8) -> Result<Vec<u8>> {
-        self.session.capture_screenshot(Some("jpeg"), Some(quality)).await
+        self.session
+            .capture_screenshot(Some("jpeg"), Some(quality))
+            .await
     }
 
     // =========================================================================
@@ -177,12 +182,18 @@ impl Page {
     /// Find all elements matching a CSS selector
     pub async fn find_all(&self, selector: &str) -> Result<Vec<Element<'_>>> {
         let doc = self.session.get_document(Some(0)).await?;
-        let node_ids = self.session.query_selector_all(doc.node_id, selector).await?;
+        let node_ids = self
+            .session
+            .query_selector_all(doc.node_id, selector)
+            .await?;
 
         Ok(node_ids
             .into_iter()
             .filter(|&id| id != 0)
-            .map(|node_id| Element { page: self, node_id })
+            .map(|node_id| Element {
+                page: self,
+                node_id,
+            })
             .collect())
     }
 
@@ -198,22 +209,28 @@ impl Page {
     /// Click at coordinates
     pub async fn click_at(&self, x: f64, y: f64) -> Result<()> {
         // Mouse down
-        self.session.dispatch_mouse_event(
-            MouseEventType::MousePressed,
-            x, y,
-            Some(MouseButton::Left),
-            Some(1),
-        ).await?;
+        self.session
+            .dispatch_mouse_event(
+                MouseEventType::MousePressed,
+                x,
+                y,
+                Some(MouseButton::Left),
+                Some(1),
+            )
+            .await?;
 
         tokio::time::sleep(std::time::Duration::from_millis(50)).await;
 
         // Mouse up
-        self.session.dispatch_mouse_event(
-            MouseEventType::MouseReleased,
-            x, y,
-            Some(MouseButton::Left),
-            Some(1),
-        ).await?;
+        self.session
+            .dispatch_mouse_event(
+                MouseEventType::MouseReleased,
+                x,
+                y,
+                Some(MouseButton::Left),
+                Some(1),
+            )
+            .await?;
 
         Ok(())
     }
@@ -280,7 +297,12 @@ impl Page {
     }
 
     /// Human-like typing with speed option
-    pub async fn human_type_with_speed(&self, selector: &str, text: &str, speed: HumanSpeed) -> Result<()> {
+    pub async fn human_type_with_speed(
+        &self,
+        selector: &str,
+        text: &str,
+        speed: HumanSpeed,
+    ) -> Result<()> {
         self.human_click_with_speed(selector, speed).await?;
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
         self.human().with_speed(speed).type_text(text).await
@@ -346,13 +368,10 @@ impl Page {
         path: Option<&str>,
     ) -> Result<()> {
         let url = self.url().await.ok();
-        let success = self.session.set_cookie(
-            name,
-            value,
-            url.as_deref(),
-            domain,
-            path,
-        ).await?;
+        let success = self
+            .session
+            .set_cookie(name, value, url.as_deref(), domain, path)
+            .await?;
 
         if !success {
             return Err(Error::CdpSimple("Failed to set cookie".into()));
@@ -363,7 +382,9 @@ impl Page {
     /// Delete a cookie
     pub async fn delete_cookie(&self, name: &str, domain: Option<&str>) -> Result<()> {
         let url = self.url().await.ok();
-        self.session.delete_cookies(name, url.as_deref(), domain).await
+        self.session
+            .delete_cookies(name, url.as_deref(), domain)
+            .await
     }
 
     // =========================================================================
@@ -583,7 +604,11 @@ impl<'a> Element<'a> {
     pub async fn text(&self) -> Result<String> {
         // Focus the element first, then get its innerText
         self.page.session.focus(self.node_id).await?;
-        let result = self.page.session.evaluate("document.activeElement.innerText").await?;
+        let result = self
+            .page
+            .session
+            .evaluate("document.activeElement.innerText")
+            .await?;
         if let Some(value) = result.result.value {
             if let Some(s) = value.as_str() {
                 return Ok(s.to_string());

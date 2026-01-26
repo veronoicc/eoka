@@ -62,10 +62,7 @@ pub enum Error {
 
     /// Binary patching error
     #[error("Patching error in {operation}: {message}")]
-    Patching {
-        operation: String,
-        message: String,
-    },
+    Patching { operation: String, message: String },
 }
 
 impl Error {

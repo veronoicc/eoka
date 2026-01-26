@@ -695,7 +695,7 @@ pub fn build_evasion_script(config: &StealthConfig) -> String {
         CHROME_RUNTIME_EVASION,
         PERMISSIONS_EVASION,
         PLUGINS_EVASION,
-        NAVIGATOR_PROPS_EVASION,  // Combined: languages, platform, hardware, etc.
+        NAVIGATOR_PROPS_EVASION, // Combined: languages, platform, hardware, etc.
         HEADLESS_EVASION,
         BATTERY_EVASION,
         NAVIGATOR_EXTRA_EVASION,

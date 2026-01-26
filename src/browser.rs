@@ -5,8 +5,8 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use crate::cdp::{Connection, Transport};
 use crate::cdp::transport::launch_chrome;
+use crate::cdp::{Connection, Transport};
 use crate::error::{Error, Result};
 use crate::page::Page;
 use crate::stealth::{build_evasion_script, find_chrome, random_user_agent, ChromePatcher};
@@ -18,7 +18,8 @@ fn stealth_args(config: &StealthConfig) -> Vec<String> {
         // Core automation hiding
         "--disable-blink-features=AutomationControlled".into(),
         "--disable-automation".into(),
-        "--disable-features=IsolateOrigins,site-per-process,AutomationControlled,EnableAutomation".into(),
+        "--disable-features=IsolateOrigins,site-per-process,AutomationControlled,EnableAutomation"
+            .into(),
         "--enable-features=NetworkService,NetworkServiceInProcess".into(),
         // Additional flags to hide automation
         "--disable-infobars".into(),
@@ -46,7 +47,10 @@ fn stealth_args(config: &StealthConfig) -> Vec<String> {
         "--use-mock-keychain".into(),
         "--excludeSwitches=enable-automation".into(),
         // Window size
-        format!("--window-size={},{}", config.viewport_width, config.viewport_height),
+        format!(
+            "--window-size={},{}",
+            config.viewport_width, config.viewport_height
+        ),
     ];
 
     // User agent
@@ -82,8 +86,8 @@ impl Browser {
         let config = Arc::new(config);
 
         // Create unique user data directory
-        let user_data_dir = std::env::temp_dir()
-            .join(format!("eoka-browser-{}", std::process::id()));
+        let user_data_dir =
+            std::env::temp_dir().join(format!("eoka-browser-{}", std::process::id()));
 
         // Clean up any stale data
         let _ = std::fs::remove_dir_all(&user_data_dir);
@@ -133,11 +137,10 @@ impl Browser {
     /// Create a new page and navigate to URL
     pub async fn new_page(&self, url: &str) -> Result<Page> {
         // Create a new target (window size is set via --window-size Chrome arg)
-        let target_id = self.connection.create_target(
-            "about:blank",
-            None,
-            None,
-        ).await?;
+        let target_id = self
+            .connection
+            .create_target("about:blank", None, None)
+            .await?;
 
         // Attach to the target
         let session = self.connection.attach_to_target(&target_id).await?;
@@ -146,7 +149,9 @@ impl Browser {
         session.page_enable().await?;
 
         // Inject evasion scripts BEFORE navigation
-        session.add_script_to_evaluate_on_new_document(&self.evasion_script).await?;
+        session
+            .add_script_to_evaluate_on_new_document(&self.evasion_script)
+            .await?;
 
         // Navigate to URL
         let nav_result = session.navigate(url).await?;
@@ -162,15 +167,16 @@ impl Browser {
 
     /// Create a new page without navigation (at about:blank)
     pub async fn new_blank_page(&self) -> Result<Page> {
-        let target_id = self.connection.create_target(
-            "about:blank",
-            None,
-            None,
-        ).await?;
+        let target_id = self
+            .connection
+            .create_target("about:blank", None, None)
+            .await?;
 
         let session = self.connection.attach_to_target(&target_id).await?;
         session.page_enable().await?;
-        session.add_script_to_evaluate_on_new_document(&self.evasion_script).await?;
+        session
+            .add_script_to_evaluate_on_new_document(&self.evasion_script)
+            .await?;
 
         Ok(Page::new(session, Arc::clone(&self.config)))
     }

@@ -32,7 +32,11 @@ impl From<Cookie> for SessionCookie {
             secure: c.secure,
             http_only: c.http_only,
             same_site: c.same_site,
-            expires: if c.expires > 0.0 { Some(c.expires) } else { None },
+            expires: if c.expires > 0.0 {
+                Some(c.expires)
+            } else {
+                None
+            },
         }
     }
 }

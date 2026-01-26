@@ -68,13 +68,13 @@ pub mod session;
 pub mod stealth;
 
 // Re-exports
+pub use annotate::{annotate_screenshot, AnnotationConfig, AnnotationError, InteractiveElement};
 pub use browser::Browser;
 pub use error::{Error, Result};
-pub use page::{Element, Page, CapturedRequest, ResponseBody};
-pub use session::{BrowserSession, SessionCookie};
-pub use stealth::{HumanSpeed, Fingerprint};
 pub use network::{NetworkEvent, NetworkWatcher};
-pub use annotate::{AnnotationConfig, AnnotationError, InteractiveElement, annotate_screenshot};
+pub use page::{CapturedRequest, Element, Page, ResponseBody};
+pub use session::{BrowserSession, SessionCookie};
+pub use stealth::{Fingerprint, HumanSpeed};
 
 /// Configuration for stealth features
 #[derive(Debug, Clone)]

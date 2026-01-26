@@ -158,8 +158,15 @@ pub struct Transport {
 /// A parsed CDP message (response or event)
 #[derive(Debug)]
 pub enum CdpMessage {
-    Response { id: u64, result: Result<Value> },
-    Event { method: String, params: Value, session_id: Option<String> },
+    Response {
+        id: u64,
+        result: Result<Value>,
+    },
+    Event {
+        method: String,
+        params: Value,
+        session_id: Option<String>,
+    },
 }
 
 impl Transport {
@@ -175,7 +182,10 @@ impl Transport {
 
         // WebSocket handshake
         let path = format!("/{}", url.split_once('/').map(|(_, p)| p).unwrap_or(""));
-        let key = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, rand::random::<[u8; 16]>());
+        let key = base64::Engine::encode(
+            &base64::engine::general_purpose::STANDARD,
+            rand::random::<[u8; 16]>(),
+        );
 
         let handshake = format!(
             "GET {} HTTP/1.1\r\n\
@@ -189,26 +199,33 @@ impl Transport {
         );
 
         use std::io::{Read, Write};
-        stream.write_all(handshake.as_bytes())
+        stream
+            .write_all(handshake.as_bytes())
             .map_err(|e| Error::transport_io("Handshake write failed", e))?;
 
         // Read handshake response
         let mut response = [0u8; 1024];
-        let n = stream.read(&mut response)
+        let n = stream
+            .read(&mut response)
             .map_err(|e| Error::transport_io("Handshake read failed", e))?;
         let response_str = String::from_utf8_lossy(&response[..n]);
 
         if !response_str.contains("101") {
-            return Err(Error::transport(format!("WebSocket handshake failed: {}", response_str)));
+            return Err(Error::transport(format!(
+                "WebSocket handshake failed: {}",
+                response_str
+            )));
         }
 
         tracing::debug!("WebSocket connected to {}", ws_url);
 
         // Clone stream for reader
-        let reader_stream = stream.try_clone()
+        let reader_stream = stream
+            .try_clone()
             .map_err(|e| Error::transport_io("Failed to clone stream", e))?;
 
-        let pending: Arc<Mutex<HashMap<u64, PendingRequest>>> = Arc::new(Mutex::new(HashMap::new()));
+        let pending: Arc<Mutex<HashMap<u64, PendingRequest>>> =
+            Arc::new(Mutex::new(HashMap::new()));
         let (event_tx, event_rx) = mpsc::channel(256);
 
         // Spawn reader task
@@ -260,9 +277,14 @@ impl Transport {
                     if let Some(id) = msg.get("id").and_then(|v| v.as_u64()) {
                         let result = if let Some(error) = msg.get("error") {
                             Err(Error::cdp(
-                                msg.get("method").and_then(|m| m.as_str()).unwrap_or("unknown"),
+                                msg.get("method")
+                                    .and_then(|m| m.as_str())
+                                    .unwrap_or("unknown"),
                                 error.get("code").and_then(|c| c.as_i64()).unwrap_or(-1),
-                                error.get("message").and_then(|m| m.as_str()).unwrap_or("unknown"),
+                                error
+                                    .get("message")
+                                    .and_then(|m| m.as_str())
+                                    .unwrap_or("unknown"),
                             ))
                         } else {
                             Ok(msg.get("result").cloned().unwrap_or(json!({})))
@@ -276,7 +298,10 @@ impl Transport {
                         }
                     } else if let Some(method) = msg.get("method").and_then(|m| m.as_str()) {
                         let params = msg.get("params").cloned().unwrap_or(json!({}));
-                        let session_id = msg.get("sessionId").and_then(|s| s.as_str()).map(String::from);
+                        let session_id = msg
+                            .get("sessionId")
+                            .and_then(|s| s.as_str())
+                            .map(String::from);
 
                         let _ = event_tx.blocking_send(CdpMessage::Event {
                             method: method.to_string(),
@@ -345,7 +370,9 @@ impl Transport {
         tracing::trace!("Sent CDP command: {} (id={})", method, id);
 
         // Wait for response
-        let result = rx.await.map_err(|_| Error::transport("Response channel closed"))??;
+        let result = rx
+            .await
+            .map_err(|_| Error::transport("Response channel closed"))??;
 
         // Deserialize result
         let response: R = serde_json::from_value(result)?;
@@ -353,7 +380,12 @@ impl Transport {
     }
 
     /// Send a CDP command to a specific session
-    pub async fn send_to_session<C, R>(&self, session_id: &str, method: &str, params: &C) -> Result<R>
+    pub async fn send_to_session<C, R>(
+        &self,
+        session_id: &str,
+        method: &str,
+        params: &C,
+    ) -> Result<R>
     where
         C: Serialize,
         R: DeserializeOwned,
@@ -394,10 +426,17 @@ impl Transport {
                 .map_err(|e| Error::transport_io("WebSocket write failed", e))?;
         }
 
-        tracing::trace!("Sent CDP command: {} (id={}, session={})", method, id, session_id);
+        tracing::trace!(
+            "Sent CDP command: {} (id={}, session={})",
+            method,
+            id,
+            session_id
+        );
 
         // Wait for response
-        let result = rx.await.map_err(|_| Error::transport("Response channel closed"))??;
+        let result = rx
+            .await
+            .map_err(|_| Error::transport("Response channel closed"))??;
 
         // Deserialize result
         let response: R = serde_json::from_value(result)?;
@@ -452,11 +491,14 @@ pub fn launch_chrome(path: &std::path::Path, args: &[String]) -> Result<(Child, 
         .stdout(Stdio::null())
         .stderr(Stdio::piped()); // We need stderr to get the DevTools URL
 
-    let mut child = cmd.spawn()
+    let mut child = cmd
+        .spawn()
         .map_err(|e| Error::Launch(format!("Failed to launch Chrome: {}", e)))?;
 
     // Read stderr to find the DevTools URL
-    let stderr = child.stderr.take()
+    let stderr = child
+        .stderr
+        .take()
         .ok_or(Error::Launch("No stderr from Chrome".into()))?;
 
     let reader = BufReader::new(stderr);
@@ -479,7 +521,9 @@ pub fn launch_chrome(path: &std::path::Path, args: &[String]) -> Result<(Child, 
         }
     }
 
-    let ws_url = ws_url.ok_or(Error::Launch("Failed to get DevTools WebSocket URL from Chrome".into()))?;
+    let ws_url = ws_url.ok_or(Error::Launch(
+        "Failed to get DevTools WebSocket URL from Chrome".into(),
+    ))?;
 
     tracing::info!("Chrome DevTools URL: {}", ws_url);
 

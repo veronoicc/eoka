@@ -10,7 +10,7 @@ async fn main() -> Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::from_default_env()
-                .add_directive("eoka=info".parse().unwrap())
+                .add_directive("eoka=info".parse().unwrap()),
         )
         .init();
 
@@ -27,7 +27,9 @@ async fn main() -> Result<()> {
     println!("\nLaunching browser...");
     let browser = Browser::launch_with_config(config).await?;
 
-    let page = browser.new_page("https://bot-detector.rebrowser.net/").await?;
+    let page = browser
+        .new_page("https://bot-detector.rebrowser.net/")
+        .await?;
 
     // Wait for tests to complete
     println!("Waiting for tests to run...");
@@ -39,7 +41,9 @@ async fn main() -> Result<()> {
     println!("Screenshot saved to rebrowser.png");
 
     // Try to extract test results
-    let results: String = page.evaluate(r#"
+    let results: String = page
+        .evaluate(
+            r#"
         (() => {
             // Look for the JSON section
             const h2s = document.querySelectorAll('h2');
@@ -77,7 +81,10 @@ async fn main() -> Result<()> {
             );
             return lines.join('\n') || allText.substring(0, 3000);
         })()
-    "#).await.unwrap_or_else(|e| format!("Error: {}", e));
+    "#,
+        )
+        .await
+        .unwrap_or_else(|e| format!("Error: {}", e));
 
     println!("\n--- Detection Results ---\n");
     println!("{}", results);
