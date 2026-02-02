@@ -2,8 +2,13 @@
 
 [![crates.io](https://img.shields.io/crates/v/eoka.svg)](https://crates.io/crates/eoka)
 [![docs.rs](https://docs.rs/eoka/badge.svg)](https://docs.rs/eoka)
+[![CI](https://github.com/cbxss/eoka/actions/workflows/ci.yml/badge.svg)](https://github.com/cbxss/eoka/actions/workflows/ci.yml)
 
 Stealth browser automation. Passes bot detection without the bloat.
+
+## Requirements
+
+Chrome or Chromium must be installed. eoka launches and controls a real browser instance via CDP.
 
 ## Install
 
