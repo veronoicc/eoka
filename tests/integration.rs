@@ -285,7 +285,7 @@ async fn test_cookies() {
     page.goto("https://example.com")
         .await
         .expect("Failed to navigate");
-    page.wait_for_navigation().await.ok();
+    page.wait(1000).await;
 
     // Set a cookie
     page.set_cookie("test_cookie", "test_value", Some("example.com"), Some("/"))

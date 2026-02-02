@@ -96,20 +96,6 @@ impl BrowserSession {
             .collect::<Vec<_>>()
             .join("; ")
     }
-
-    /// Format cookies for a specific domain as a Cookie header
-    pub fn cookie_header_for_domain(&self, domain: &str) -> String {
-        self.cookies_for_domain(domain)
-            .iter()
-            .map(|c| format!("{}={}", c.name, c.value))
-            .collect::<Vec<_>>()
-            .join("; ")
-    }
-
-    /// Add an extra header
-    pub fn add_header(&mut self, name: impl Into<String>, value: impl Into<String>) {
-        self.extra_headers.insert(name.into(), value.into());
-    }
 }
 
 #[cfg(test)]

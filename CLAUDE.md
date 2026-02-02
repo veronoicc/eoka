@@ -63,6 +63,7 @@ src/
 ### Page - Waiting
 - `page.wait_for(selector, timeout)` - Wait for element in DOM
 - `page.wait_for_visible(selector, timeout)` - Wait for element to be clickable
+- `page.wait_for_hidden(selector, timeout)` - Wait for element to disappear
 - `page.wait_for_any(&[selectors], timeout)` - Wait for any selector
 - `page.wait_for_text(text, timeout)` - Wait for text to appear
 - `page.wait_for_url_contains(pattern, timeout)` - Wait for URL pattern
@@ -125,10 +126,8 @@ Try-click methods return `Ok(false)` for both missing AND invisible elements.
 ```rust
 Error::ElementNotFound(selector)      // Not in DOM
 Error::ElementNotVisible { selector } // In DOM but not rendered
-Error::ElementNotInteractive { selector, reason }
 Error::Timeout(message)
 Error::RetryExhausted { attempts, last_error }
-Error::FrameNotFound(selector)
 Error::Cdp { method, code, message }  // Raw CDP error
 ```
 

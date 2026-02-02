@@ -149,24 +149,6 @@ impl Fingerprint {
             webgl_renderer: webgl_renderer.to_string(),
         }
     }
-
-    /// Generate JavaScript to apply this fingerprint
-    pub fn to_evasion_script(&self) -> String {
-        format!(
-            r#"
-Object.defineProperty(navigator, 'hardwareConcurrency', {{ get: () => {hw} }});
-Object.defineProperty(navigator, 'deviceMemory', {{ get: () => {mem} }});
-Object.defineProperty(screen, 'width', {{ get: () => {sw} }});
-Object.defineProperty(screen, 'height', {{ get: () => {sh} }});
-Object.defineProperty(screen, 'colorDepth', {{ get: () => {cd} }});
-"#,
-            hw = self.hardware_concurrency,
-            mem = self.device_memory,
-            sw = self.screen_width,
-            sh = self.screen_height,
-            cd = self.color_depth,
-        )
-    }
 }
 
 #[cfg(test)]

@@ -33,26 +33,6 @@ impl Connection {
             .await
     }
 
-    /// Set discover targets to receive target events
-    pub async fn set_discover_targets(&self, discover: bool) -> Result<()> {
-        self.transport
-            .send::<_, serde_json::Value>(
-                "Target.setDiscoverTargets",
-                &TargetSetDiscoverTargets { discover },
-            )
-            .await?;
-        Ok(())
-    }
-
-    /// Get list of available targets
-    pub async fn get_targets(&self) -> Result<Vec<TargetInfo>> {
-        let result: TargetGetTargetsResult = self
-            .transport
-            .send("Target.getTargets", &TargetGetTargets {})
-            .await?;
-        Ok(result.target_infos)
-    }
-
     /// Create a new target (tab)
     pub async fn create_target(
         &self,
@@ -68,9 +48,6 @@ impl Connection {
                     url: url.to_string(),
                     width,
                     height,
-                    browser_context_id: None,
-                    new_window: None,
-                    background: None,
                 },
             )
             .await?;
@@ -150,10 +127,6 @@ impl Session {
             .await
     }
 
-    // =========================================================================
-    // Page Domain
-    // =========================================================================
-
     /// Enable page events
     pub async fn page_enable(&self) -> Result<()> {
         self.send::<_, serde_json::Value>("Page.enable", &PageEnable {})
@@ -167,9 +140,6 @@ impl Session {
             "Page.navigate",
             &PageNavigate {
                 url: url.to_string(),
-                referrer: None,
-                transition_type: None,
-                frame_id: None,
             },
         )
         .await
@@ -236,13 +206,6 @@ impl Session {
         Ok(result.identifier)
     }
 
-    /// Bypass Content Security Policy
-    pub async fn set_bypass_csp(&self, enabled: bool) -> Result<()> {
-        self.send::<_, serde_json::Value>("Page.setBypassCSP", &PageSetBypassCSP { enabled })
-            .await?;
-        Ok(())
-    }
-
     /// Capture a screenshot
     pub async fn capture_screenshot(
         &self,
@@ -255,9 +218,7 @@ impl Session {
                 &PageCaptureScreenshot {
                     format: format.map(String::from),
                     quality,
-                    clip: None,
-                    from_surface: None,
-                    capture_beyond_viewport: None,
+                    ..Default::default()
                 },
             )
             .await?;
@@ -276,11 +237,7 @@ impl Session {
         Ok(result.frame_tree)
     }
 
-    // =========================================================================
-    // Input Domain
-    // =========================================================================
-
-    /// Dispatch a mouse event
+    /// Dispatch a mouse event (click, move, or wheel)
     pub async fn dispatch_mouse_event(
         &self,
         event_type: MouseEventType,
@@ -289,23 +246,42 @@ impl Session {
         button: Option<MouseButton>,
         click_count: Option<i32>,
     ) -> Result<()> {
-        self.send::<_, serde_json::Value>(
-            "Input.dispatchMouseEvent",
-            &InputDispatchMouseEvent {
-                r#type: event_type,
-                x,
-                y,
-                modifiers: None,
-                timestamp: None,
-                button,
-                buttons: None,
-                click_count,
-                delta_x: None,
-                delta_y: None,
-                pointer_type: None,
-            },
-        )
-        .await?;
+        self.dispatch_mouse_event_full(InputDispatchMouseEvent {
+            r#type: event_type,
+            x,
+            y,
+            button,
+            click_count,
+            delta_x: None,
+            delta_y: None,
+        })
+        .await
+    }
+
+    /// Dispatch a mouse wheel scroll event
+    pub async fn dispatch_mouse_wheel(
+        &self,
+        x: f64,
+        y: f64,
+        delta_x: f64,
+        delta_y: f64,
+    ) -> Result<()> {
+        self.dispatch_mouse_event_full(InputDispatchMouseEvent {
+            r#type: MouseEventType::MouseWheel,
+            x,
+            y,
+            button: None,
+            click_count: None,
+            delta_x: Some(delta_x),
+            delta_y: Some(delta_y),
+        })
+        .await
+    }
+
+    /// Dispatch a raw mouse event with full control over all fields
+    pub async fn dispatch_mouse_event_full(&self, event: InputDispatchMouseEvent) -> Result<()> {
+        self.send::<_, serde_json::Value>("Input.dispatchMouseEvent", &event)
+            .await?;
         Ok(())
     }
 
@@ -321,19 +297,10 @@ impl Session {
             "Input.dispatchKeyEvent",
             &InputDispatchKeyEvent {
                 r#type: event_type,
-                modifiers: None,
-                timestamp: None,
                 text: text.map(String::from),
-                unmodified_text: None,
-                key_identifier: None,
                 code: code.map(String::from),
                 key: key.map(String::from),
-                windows_virtual_key_code: None,
-                native_virtual_key_code: None,
-                auto_repeat: None,
-                is_keypad: None,
-                is_system_key: None,
-                location: None,
+                ..Default::default()
             },
         )
         .await?;
@@ -351,10 +318,6 @@ impl Session {
         .await?;
         Ok(())
     }
-
-    // =========================================================================
-    // DOM Domain
-    // =========================================================================
 
     /// Get the document root node
     pub async fn get_document(&self, depth: Option<i32>) -> Result<DOMNode> {
@@ -405,8 +368,7 @@ impl Session {
                 "DOM.getBoxModel",
                 &DOMGetBoxModel {
                     node_id: Some(node_id),
-                    backend_node_id: None,
-                    object_id: None,
+                    ..Default::default()
                 },
             )
             .await?;
@@ -420,8 +382,7 @@ impl Session {
                 "DOM.getOuterHTML",
                 &DOMGetOuterHTML {
                     node_id: Some(node_id),
-                    backend_node_id: None,
-                    object_id: None,
+                    ..Default::default()
                 },
             )
             .await?;
@@ -435,8 +396,8 @@ impl Session {
                 "DOM.resolveNode",
                 &DOMResolveNode {
                     node_id: Some(node_id),
-                    backend_node_id: None,
                     object_group: Some("eoka".to_string()),
+                    ..Default::default()
                 },
             )
             .await?;
@@ -450,30 +411,14 @@ impl Session {
             })
     }
 
-    /// Call a function on a remote object and return the result
+    /// Call a function on a remote object and return the result by value
     pub async fn call_function_on(
         &self,
         object_id: &str,
         function_declaration: &str,
     ) -> Result<RuntimeEvaluateResult> {
-        let result: RuntimeCallFunctionOnResult = self
-            .send(
-                "Runtime.callFunctionOn",
-                &RuntimeCallFunctionOn {
-                    function_declaration: function_declaration.to_string(),
-                    object_id: Some(object_id.to_string()),
-                    arguments: None,
-                    silent: Some(true),
-                    return_by_value: Some(true),
-                    await_promise: Some(true),
-                },
-            )
-            .await?;
-        // Convert to RuntimeEvaluateResult for consistent API
-        Ok(RuntimeEvaluateResult {
-            result: result.result,
-            exception_details: result.exception_details,
-        })
+        self.call_function_on_impl(object_id, function_declaration, true)
+            .await
     }
 
     /// Focus an element
@@ -482,17 +427,12 @@ impl Session {
             "DOM.focus",
             &DOMFocus {
                 node_id: Some(node_id),
-                backend_node_id: None,
-                object_id: None,
+                ..Default::default()
             },
         )
         .await?;
         Ok(())
     }
-
-    // =========================================================================
-    // Network Domain
-    // =========================================================================
 
     /// Get all cookies
     pub async fn get_cookies(&self, urls: Option<Vec<String>>) -> Result<Vec<Cookie>> {
@@ -520,10 +460,7 @@ impl Session {
                     url: url.map(String::from),
                     domain: domain.map(String::from),
                     path: path.map(String::from),
-                    secure: None,
-                    http_only: None,
-                    same_site: None,
-                    expires: None,
+                    ..Default::default()
                 },
             )
             .await?;
@@ -543,7 +480,7 @@ impl Session {
                 name: name.to_string(),
                 url: url.map(String::from),
                 domain: domain.map(String::from),
-                path: None,
+                ..Default::default()
             },
         )
         .await?;
@@ -556,8 +493,6 @@ impl Session {
         self.send::<_, serde_json::Value>(
             "Network.enable",
             &NetworkEnable {
-                max_total_buffer_size: None,
-                max_resource_buffer_size: None,
                 max_post_data_size: Some(65536), // Capture POST data up to 64KB
             },
         )
@@ -585,30 +520,87 @@ impl Session {
         Ok((result.body, result.base64_encoded))
     }
 
-    // =========================================================================
-    // Runtime Domain (use sparingly - prefer DOM methods)
-    // =========================================================================
+    /// Evaluate JavaScript and return a remote object reference (not by value).
+    pub async fn evaluate_for_remote_object(
+        &self,
+        expression: &str,
+    ) -> Result<RuntimeEvaluateResult> {
+        self.evaluate_impl(expression, false, Some("eoka")).await
+    }
 
-    /// Evaluate JavaScript expression
-    /// NOTE: Prefer DOM methods where possible as Runtime.evaluate may be detectable
+    /// Convert a remote object ID to a DOM node_id via DOM.requestNode
+    pub async fn request_node(&self, object_id: &str) -> Result<i32> {
+        let result: DOMRequestNodeResult = self
+            .send(
+                "DOM.requestNode",
+                &DOMRequestNode {
+                    object_id: object_id.to_string(),
+                },
+            )
+            .await?;
+        Ok(result.node_id)
+    }
+
+    /// Get all own properties of a remote object (used for array element enumeration)
+    pub async fn get_properties(
+        &self,
+        object_id: &str,
+    ) -> Result<Vec<crate::cdp::types::PropertyDescriptor>> {
+        let result: crate::cdp::types::RuntimeGetPropertiesResult = self
+            .send(
+                "Runtime.getProperties",
+                &crate::cdp::types::RuntimeGetProperties {
+                    object_id: object_id.to_string(),
+                    own_properties: Some(true),
+                },
+            )
+            .await?;
+        Ok(result.result)
+    }
+
+    async fn call_function_on_impl(
+        &self,
+        object_id: &str,
+        function_declaration: &str,
+        return_by_value: bool,
+    ) -> Result<RuntimeEvaluateResult> {
+        let result: RuntimeCallFunctionOnResult = self
+            .send(
+                "Runtime.callFunctionOn",
+                &RuntimeCallFunctionOn {
+                    function_declaration: function_declaration.to_string(),
+                    object_id: Some(object_id.to_string()),
+                    arguments: None,
+                    silent: None,
+                    return_by_value: Some(return_by_value),
+                    await_promise: Some(true),
+                },
+            )
+            .await?;
+        Ok(RuntimeEvaluateResult {
+            result: result.result,
+            exception_details: result.exception_details,
+        })
+    }
+
+    /// Evaluate JavaScript expression and return the result by value
     pub async fn evaluate(&self, expression: &str) -> Result<RuntimeEvaluateResult> {
+        self.evaluate_impl(expression, true, None).await
+    }
+
+    async fn evaluate_impl(
+        &self,
+        expression: &str,
+        return_by_value: bool,
+        object_group: Option<&str>,
+    ) -> Result<RuntimeEvaluateResult> {
         self.send(
             "Runtime.evaluate",
             &RuntimeEvaluate {
                 expression: expression.to_string(),
-                object_group: None,
-                include_command_line_api: None,
-                silent: Some(true),
-                context_id: None,
-                return_by_value: Some(true),
-                generate_preview: None,
-                user_gesture: None,
+                object_group: object_group.map(String::from),
+                return_by_value: Some(return_by_value),
                 await_promise: Some(true),
-                throw_on_side_effect: None,
-                timeout: None,
-                disable_breaks: None,
-                repl_mode: None,
-                allow_unsafe_eval_blocked_by_csp: None,
             },
         )
         .await

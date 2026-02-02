@@ -3,7 +3,11 @@
 //! Handles Chrome discovery, launching with stealth flags, and binary patching.
 
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+
+/// Global counter for unique user data directories
+static BROWSER_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 use crate::cdp::transport::launch_chrome;
 use crate::cdp::{Connection, Transport};
@@ -86,8 +90,12 @@ impl Browser {
         let config = Arc::new(config);
 
         // Create unique user data directory
-        let user_data_dir =
-            std::env::temp_dir().join(format!("eoka-browser-{}", std::process::id()));
+        let instance_id = BROWSER_COUNTER.fetch_add(1, Ordering::Relaxed);
+        let user_data_dir = std::env::temp_dir().join(format!(
+            "eoka-browser-{}-{}",
+            std::process::id(),
+            instance_id
+        ));
 
         // Clean up any stale data
         let _ = std::fs::remove_dir_all(&user_data_dir);
@@ -159,7 +167,9 @@ impl Browser {
             return Err(Error::Navigation(error));
         }
 
-        // Wait a bit for page to load
+        // Brief settle time for the initial page load to start.
+        // For reliable waiting, callers should use page.wait_for_navigation() or
+        // page.wait_for(selector, timeout) after this returns.
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
 
         Ok(Page::new(session, Arc::clone(&self.config)))
@@ -195,5 +205,13 @@ impl Browser {
         let _ = std::fs::remove_dir_all(&self.user_data_dir);
 
         Ok(())
+    }
+}
+
+impl Drop for Browser {
+    fn drop(&mut self) {
+        // Best-effort cleanup of user data directory if close() wasn't called.
+        // The Transport's Drop impl handles killing the Chrome process.
+        let _ = std::fs::remove_dir_all(&self.user_data_dir);
     }
 }

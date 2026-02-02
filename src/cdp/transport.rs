@@ -14,6 +14,10 @@ use serde::{de::DeserializeOwned, Serialize};
 use serde_json::{json, Value};
 use tokio::sync::{mpsc, oneshot, Mutex};
 
+/// Pending requests map - uses std::sync::Mutex because it's accessed from both
+/// a std thread (reader loop) and async contexts, and the lock is held very briefly.
+type PendingMap = std::sync::Mutex<HashMap<u64, PendingRequest>>;
+
 use crate::error::{Error, Result};
 
 /// Commands that are blocked (highly detectable by anti-bot)
@@ -150,7 +154,7 @@ pub struct Transport {
     /// Next message ID
     next_id: AtomicU64,
     /// Pending requests waiting for responses
-    pending: Arc<Mutex<HashMap<u64, PendingRequest>>>,
+    pending: Arc<PendingMap>,
     /// Channel to receive parsed messages from the reader task
     event_rx: Mutex<mpsc::Receiver<CdpMessage>>,
 }
@@ -198,17 +202,35 @@ impl Transport {
             path, host_port, key
         );
 
-        use std::io::{Read, Write};
+        use std::io::{BufRead, Write};
         stream
             .write_all(handshake.as_bytes())
             .map_err(|e| Error::transport_io("Handshake write failed", e))?;
 
-        // Read handshake response
-        let mut response = [0u8; 1024];
-        let n = stream
-            .read(&mut response)
-            .map_err(|e| Error::transport_io("Handshake read failed", e))?;
-        let response_str = String::from_utf8_lossy(&response[..n]);
+        // Read handshake response - loop until we see the end of HTTP headers.
+        // Use BufReader to avoid a syscall per byte.
+        let mut reader = std::io::BufReader::new(&stream);
+        let mut response_buf = Vec::with_capacity(1024);
+        loop {
+            let available = reader
+                .fill_buf()
+                .map_err(|e| Error::transport_io("Handshake read failed", e))?;
+            if available.is_empty() {
+                return Err(Error::transport(
+                    "Connection closed during WebSocket handshake",
+                ));
+            }
+            let len = available.len();
+            response_buf.extend_from_slice(available);
+            reader.consume(len);
+            if response_buf.len() >= 4 && response_buf[response_buf.len() - 4..] == *b"\r\n\r\n" {
+                break;
+            }
+            if response_buf.len() > 8192 {
+                return Err(Error::transport("WebSocket handshake response too large"));
+            }
+        }
+        let response_str = String::from_utf8_lossy(&response_buf);
 
         if !response_str.contains("101") {
             return Err(Error::transport(format!(
@@ -224,8 +246,7 @@ impl Transport {
             .try_clone()
             .map_err(|e| Error::transport_io("Failed to clone stream", e))?;
 
-        let pending: Arc<Mutex<HashMap<u64, PendingRequest>>> =
-            Arc::new(Mutex::new(HashMap::new()));
+        let pending: Arc<PendingMap> = Arc::new(std::sync::Mutex::new(HashMap::new()));
         let (event_tx, event_rx) = mpsc::channel(256);
 
         // Spawn reader task
@@ -246,7 +267,7 @@ impl Transport {
     /// Reader loop - runs in a separate thread to read from WebSocket
     fn reader_loop(
         mut stream: TcpStream,
-        pending: Arc<Mutex<HashMap<u64, PendingRequest>>>,
+        pending: Arc<PendingMap>,
         event_tx: mpsc::Sender<CdpMessage>,
     ) {
         loop {
@@ -290,7 +311,7 @@ impl Transport {
                             Ok(msg.get("result").cloned().unwrap_or(json!({})))
                         };
 
-                        let mut pending_guard = pending.blocking_lock();
+                        let mut pending_guard = pending.lock().unwrap();
                         if let Some(sender) = pending_guard.remove(&id) {
                             let _ = sender.send(result);
                         } else {
@@ -326,8 +347,8 @@ impl Transport {
         tracing::debug!("CDP reader loop ended");
     }
 
-    /// Send a CDP command and wait for the response
-    pub async fn send<C, R>(&self, method: &str, params: &C) -> Result<R>
+    /// Internal: send a CDP command with optional session ID
+    async fn send_impl<C, R>(&self, session_id: Option<&str>, method: &str, params: &C) -> Result<R>
     where
         C: Serialize,
         R: DeserializeOwned,
@@ -343,21 +364,24 @@ impl Transport {
             tracing::warn!("Risky CDP command (may be detectable): {}", method);
         }
 
-        let id = self.next_id.fetch_add(1, Ordering::SeqCst);
+        let id = self.next_id.fetch_add(1, Ordering::Relaxed);
 
         // Create response channel
         let (tx, rx) = oneshot::channel();
         {
-            let mut pending = self.pending.lock().await;
+            let mut pending = self.pending.lock().unwrap();
             pending.insert(id, tx);
         }
 
-        // Build and send message
-        let msg = json!({
+        // Build message
+        let mut msg = json!({
             "id": id,
             "method": method,
             "params": serde_json::to_value(params)?
         });
+        if let Some(sid) = session_id {
+            msg["sessionId"] = json!(sid);
+        }
 
         let data = serde_json::to_string(&msg)?;
 
@@ -374,9 +398,17 @@ impl Transport {
             .await
             .map_err(|_| Error::transport("Response channel closed"))??;
 
-        // Deserialize result
         let response: R = serde_json::from_value(result)?;
         Ok(response)
+    }
+
+    /// Send a CDP command and wait for the response
+    pub async fn send<C, R>(&self, method: &str, params: &C) -> Result<R>
+    where
+        C: Serialize,
+        R: DeserializeOwned,
+    {
+        self.send_impl(None, method, params).await
     }
 
     /// Send a CDP command to a specific session
@@ -390,57 +422,7 @@ impl Transport {
         C: Serialize,
         R: DeserializeOwned,
     {
-        // STEALTH: Block detectable commands - return empty object (deserializes via #[serde(default)])
-        if is_blocked(method) {
-            tracing::debug!("Blocked CDP command: {} (session={})", method, session_id);
-            return serde_json::from_value(json!({})).map_err(Into::into);
-        }
-
-        // STEALTH: Warn on risky commands
-        if is_risky(method) {
-            tracing::warn!("Risky CDP command: {} (session={})", method, session_id);
-        }
-
-        let id = self.next_id.fetch_add(1, Ordering::SeqCst);
-
-        // Create response channel
-        let (tx, rx) = oneshot::channel();
-        {
-            let mut pending = self.pending.lock().await;
-            pending.insert(id, tx);
-        }
-
-        // Build and send message with sessionId
-        let msg = json!({
-            "id": id,
-            "method": method,
-            "params": serde_json::to_value(params)?,
-            "sessionId": session_id
-        });
-
-        let data = serde_json::to_string(&msg)?;
-
-        {
-            let mut writer = self.writer.lock().await;
-            write_ws_frame(&mut writer, data.as_bytes())
-                .map_err(|e| Error::transport_io("WebSocket write failed", e))?;
-        }
-
-        tracing::trace!(
-            "Sent CDP command: {} (id={}, session={})",
-            method,
-            id,
-            session_id
-        );
-
-        // Wait for response
-        let result = rx
-            .await
-            .map_err(|_| Error::transport("Response channel closed"))??;
-
-        // Deserialize result
-        let response: R = serde_json::from_value(result)?;
-        Ok(response)
+        self.send_impl(Some(session_id), method, params).await
     }
 
     /// Receive the next event from Chrome

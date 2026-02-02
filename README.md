@@ -14,7 +14,7 @@ Chrome or Chromium must be installed. eoka launches and controls a real browser 
 
 ```toml
 [dependencies]
-eoka = "0.2"
+eoka = "0.3"
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 ```
 
@@ -150,14 +150,11 @@ page.wait_for_visible("#email", 10_000).await?;
 
 // Wait for any of multiple selectors
 page.wait_for_any(&["#success", ".error-message"], 10_000).await?;
-page.wait_for_any_visible(&["#form", "#loading-complete"], 10_000).await?;
 
 // Wait for element by text
 page.wait_for_text("Success!", 10_000).await?;
-page.wait_for_text_hidden("Loading...", 5_000).await?;
 
-// Wait for navigation/URL changes
-page.wait_for_navigation().await?;  // waits for document.readyState == "complete"
+// Wait for URL changes
 page.wait_for_url_contains("dashboard", 10_000).await?;
 page.wait_for_url_change(10_000).await?;
 
@@ -263,10 +260,7 @@ page.try_click_by_text("Accept All").await?;
 ### Wait for Page After Click
 
 ```rust
-page.human_click_by_text("Next Page").await?;
-page.wait_for_navigation().await?;
-
-// Or wait for URL to change
+// Wait for URL to change
 page.human_click_by_text("Sign In").await?;
 page.wait_for_url_contains("login", 10_000).await?;
 
@@ -325,7 +319,7 @@ let email_input = page.find_any(&[
 ]).await?;
 
 // Or wait for any to appear
-page.wait_for_any_visible(&["#login-form", "#sso-redirect"], 10_000).await?;
+page.wait_for_any(&["#login-form", "#sso-redirect"], 10_000).await?;
 ```
 
 ## Config

@@ -184,36 +184,6 @@ impl<'a> Human<'a> {
         Ok(())
     }
 
-    /// Fast click without mouse movement
-    pub async fn fast_click(&self, x: f64, y: f64) -> Result<()> {
-        let click_x = x + random_f64_range(-1.0, 1.0);
-        let click_y = y + random_f64_range(-1.0, 1.0);
-
-        self.session
-            .dispatch_mouse_event(
-                MouseEventType::MousePressed,
-                click_x,
-                click_y,
-                Some(MouseButton::Left),
-                Some(1),
-            )
-            .await?;
-
-        sleep(Duration::from_millis(random_range(50, 100))).await;
-
-        self.session
-            .dispatch_mouse_event(
-                MouseEventType::MouseReleased,
-                click_x,
-                click_y,
-                Some(MouseButton::Left),
-                Some(1),
-            )
-            .await?;
-
-        Ok(())
-    }
-
     /// Type text with human-like timing
     pub async fn type_text(&self, text: &str) -> Result<()> {
         let (min_delay, max_delay) = self.speed.type_delay_ms();
@@ -281,17 +251,6 @@ impl<'a> Human<'a> {
         Ok(())
     }
 
-    /// Fast type without delays
-    pub async fn fast_type(&self, text: &str) -> Result<()> {
-        for ch in text.chars() {
-            self.session
-                .dispatch_key_event(KeyEventType::Char, None, Some(&ch.to_string()), None)
-                .await?;
-            sleep(Duration::from_millis(random_range(5, 15))).await;
-        }
-        Ok(())
-    }
-
     /// Press a key
     pub async fn press_key(&self, key: &str) -> Result<()> {
         self.session
@@ -307,25 +266,21 @@ impl<'a> Human<'a> {
         Ok(())
     }
 
-    /// Random scroll
+    /// Scroll the page by delta_y pixels (positive = down, negative = up)
     pub async fn scroll(&self, delta_y: f64) -> Result<()> {
         let num_scrolls = random_range(3, 8);
         let per_scroll = delta_y / num_scrolls as f64;
 
         for _ in 0..num_scrolls {
             let jitter = random_f64_range(-20.0, 20.0);
-            let _scroll_amount = per_scroll + jitter;
+            let scroll_amount = per_scroll + jitter;
 
-            // Use mouse wheel event
-            // Note: actual scroll delta would need to be passed via Input.dispatchMouseEvent
-            // with deltaX/deltaY params, but for now we just simulate the event
             self.session
-                .dispatch_mouse_event(
-                    MouseEventType::MouseWheel,
-                    random_f64_range(400.0, 800.0), // x position
-                    random_f64_range(300.0, 600.0), // y position
-                    None,
-                    None,
+                .dispatch_mouse_wheel(
+                    random_f64_range(400.0, 800.0),
+                    random_f64_range(300.0, 600.0),
+                    0.0,
+                    scroll_amount,
                 )
                 .await?;
 
@@ -334,17 +289,6 @@ impl<'a> Human<'a> {
 
         Ok(())
     }
-}
-
-/// Natural pause like reading
-pub async fn reading_pause(min_ms: u64, max_ms: u64) {
-    let delay = random_range(min_ms, max_ms);
-    sleep(Duration::from_millis(delay)).await;
-}
-
-/// Natural hesitation
-pub async fn hesitate() {
-    reading_pause(500, 2000).await;
 }
 
 #[cfg(test)]

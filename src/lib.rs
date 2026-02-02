@@ -66,6 +66,16 @@ pub mod page;
 pub mod session;
 pub mod stealth;
 
+// Static assertions: ensure core types are Send + Sync for use across async tasks
+#[allow(dead_code)]
+const _: () = {
+    fn assert_send_sync<T: Send + Sync>() {}
+    fn _assertions() {
+        assert_send_sync::<browser::Browser>();
+        assert_send_sync::<page::Page>();
+    }
+};
+
 // Re-exports
 pub use browser::Browser;
 pub use error::{Error, Result};

@@ -105,12 +105,20 @@ impl NetworkWatcher {
     }
 
     async fn on_request_will_be_sent(&self, event: NetworkRequestWillBeSentEvent) {
-        let request = CapturedRequest::from_request(
-            event.request_id.clone(),
-            &event.request,
-            event.r#type.clone(),
-            event.timestamp,
-        );
+        let request = CapturedRequest {
+            request_id: event.request_id.clone(),
+            url: event.request.url.clone(),
+            method: event.request.method.clone(),
+            headers: event.request.headers.clone(),
+            post_data: event.request.post_data.clone(),
+            resource_type: event.r#type.clone(),
+            status: None,
+            status_text: None,
+            response_headers: None,
+            mime_type: None,
+            timestamp: event.timestamp,
+            complete: false,
+        };
 
         // Store the request
         {
@@ -129,8 +137,11 @@ impl NetworkWatcher {
         // Update the stored request
         {
             let mut requests = self.requests.lock().await;
-            if let Some(request) = requests.get_mut(&event.request_id) {
-                request.set_response(&event.response);
+            if let Some(req) = requests.get_mut(&event.request_id) {
+                req.status = Some(event.response.status);
+                req.status_text = Some(event.response.status_text.clone());
+                req.response_headers = Some(event.response.headers.clone());
+                req.mime_type = event.response.mime_type.clone();
             }
         }
 
@@ -151,8 +162,8 @@ impl NetworkWatcher {
         // Mark request as complete
         {
             let mut requests = self.requests.lock().await;
-            if let Some(request) = requests.get_mut(&event.request_id) {
-                request.mark_complete();
+            if let Some(req) = requests.get_mut(&event.request_id) {
+                req.complete = true;
             }
         }
 
@@ -208,80 +219,10 @@ impl NetworkWatcher {
         requests.values().cloned().collect()
     }
 
-    /// Get all completed requests
-    pub async fn get_completed_requests(&self) -> Vec<CapturedRequest> {
-        let requests = self.requests.lock().await;
-        requests.values().filter(|r| r.complete).cloned().collect()
-    }
-
     /// Clear all captured requests
     pub async fn clear(&self) {
         let mut requests = self.requests.lock().await;
         requests.clear();
-    }
-
-    /// Get requests matching a URL pattern
-    pub async fn get_requests_matching(&self, pattern: &str) -> Vec<CapturedRequest> {
-        let requests = self.requests.lock().await;
-        requests
-            .values()
-            .filter(|r| r.url.contains(pattern))
-            .cloned()
-            .collect()
-    }
-
-    /// Wait for a request matching a URL pattern
-    pub async fn wait_for_request(
-        &self,
-        pattern: &str,
-        timeout_ms: u64,
-    ) -> Option<CapturedRequest> {
-        let start = std::time::Instant::now();
-        let timeout = std::time::Duration::from_millis(timeout_ms);
-
-        loop {
-            // Check existing requests
-            {
-                let requests = self.requests.lock().await;
-                if let Some(request) = requests.values().find(|r| r.url.contains(pattern)) {
-                    return Some(request.clone());
-                }
-            }
-
-            if start.elapsed() > timeout {
-                return None;
-            }
-
-            // Wait a bit and check again
-            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-        }
-    }
-
-    /// Wait for a request to complete
-    pub async fn wait_for_completion(
-        &self,
-        request_id: &str,
-        timeout_ms: u64,
-    ) -> Option<CapturedRequest> {
-        let start = std::time::Instant::now();
-        let timeout = std::time::Duration::from_millis(timeout_ms);
-
-        loop {
-            {
-                let requests = self.requests.lock().await;
-                if let Some(request) = requests.get(request_id) {
-                    if request.complete {
-                        return Some(request.clone());
-                    }
-                }
-            }
-
-            if start.elapsed() > timeout {
-                return None;
-            }
-
-            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-        }
     }
 }
 
@@ -299,37 +240,5 @@ mod tests {
     async fn test_network_watcher_creation() {
         let watcher = NetworkWatcher::new();
         assert!(watcher.get_all_requests().await.is_empty());
-    }
-
-    #[tokio::test]
-    async fn test_get_requests_matching() {
-        let watcher = NetworkWatcher::new();
-
-        // Manually insert a test request
-        {
-            let mut requests = watcher.requests.lock().await;
-            let request = CapturedRequest {
-                request_id: "1".to_string(),
-                url: "https://api.example.com/users".to_string(),
-                method: "GET".to_string(),
-                headers: HashMap::new(),
-                post_data: None,
-                resource_type: Some("XHR".to_string()),
-                status: None,
-                status_text: None,
-                response_headers: None,
-                mime_type: None,
-                timestamp: 0.0,
-                complete: false,
-            };
-            requests.insert("1".to_string(), request);
-        }
-
-        let matches = watcher.get_requests_matching("api.example.com").await;
-        assert_eq!(matches.len(), 1);
-        assert!(matches[0].url.contains("api.example.com"));
-
-        let no_matches = watcher.get_requests_matching("other.com").await;
-        assert!(no_matches.is_empty());
     }
 }

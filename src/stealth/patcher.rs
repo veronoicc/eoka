@@ -381,6 +381,8 @@ impl ChromePatcher {
             .write(true)
             .open(&self.patched_path)?;
 
+        // SAFETY: We just created/copied this file and hold it open exclusively.
+        // No other process is writing to it concurrently.
         let mut mmap = unsafe { MmapMut::map_mut(&file)? };
         let patch_count = self.apply_patches(&mut mmap);
 
