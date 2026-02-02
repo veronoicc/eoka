@@ -1,12 +1,15 @@
 # eoka
 
+[![crates.io](https://img.shields.io/crates/v/eoka.svg)](https://crates.io/crates/eoka)
+[![docs.rs](https://docs.rs/eoka/badge.svg)](https://docs.rs/eoka)
+
 Stealth browser automation. Passes bot detection without the bloat.
 
 ## Install
 
 ```toml
 [dependencies]
-eoka = { git = "https://github.com/cbxss/eoka" }
+eoka = "0.2"
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 ```
 
