@@ -14,7 +14,6 @@ authors = ["cbxss"]
 
 [features]
 default = []
-annotate = ["image", "imageproc"]  # Screenshot annotations
 
 [dependencies]
 # Async runtime
@@ -37,10 +36,6 @@ memmap2 = "0.9"
 # Human simulation
 rand = "0.8"
 smallvec = "1"
-
-# Screenshot annotations (optional)
-image = { version = "0.25", optional = true }
-imageproc = { version = "0.25", optional = true }
 
 # Base64 for screenshots
 base64 = "0.22"

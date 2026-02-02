@@ -58,7 +58,6 @@
 //! # }
 //! ```
 
-pub mod annotate;
 pub mod browser;
 pub mod cdp;
 pub mod error;
@@ -68,7 +67,6 @@ pub mod session;
 pub mod stealth;
 
 // Re-exports
-pub use annotate::{annotate_screenshot, AnnotationConfig, AnnotationError, InteractiveElement};
 pub use browser::Browser;
 pub use error::{Error, Result};
 pub use network::{NetworkEvent, NetworkWatcher};
