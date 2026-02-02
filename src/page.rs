@@ -277,17 +277,18 @@ impl Page {
     /// Find an element by text with specific matching strategy
     ///
     /// Prioritizes interactive elements (a, button, input) over static elements.
-    pub async fn find_by_text_match(&self, text: &str, match_type: TextMatch) -> Result<Element<'_>> {
+    pub async fn find_by_text_match(
+        &self,
+        text: &str,
+        match_type: TextMatch,
+    ) -> Result<Element<'_>> {
         // Use unique marker ID to prevent race conditions between concurrent calls
         let marker_id = MARKER_COUNTER.fetch_add(1, Ordering::SeqCst);
         let marker_attr = format!("data-eoka-text-{}", marker_id);
 
         let escaped_text = escape_js_string(text);
         let match_js = match match_type {
-            TextMatch::Exact => format!(
-                "t.trim() === '{}'",
-                escaped_text
-            ),
+            TextMatch::Exact => format!("t.trim() === '{}'", escaped_text),
             TextMatch::Contains => format!(
                 "t.toLowerCase().includes('{}')",
                 escaped_text.to_lowercase()
@@ -391,7 +392,8 @@ impl Page {
                 }
             }
             Ok(())
-        }.await;
+        }
+        .await;
 
         // Always clean up markers, even if collection failed
         let cleanup_js = format!(
@@ -1075,7 +1077,11 @@ impl Page {
     }
 
     /// Wait for any of the given selectors to be visible and clickable
-    pub async fn wait_for_any_visible(&self, selectors: &[&str], timeout_ms: u64) -> Result<Element<'_>> {
+    pub async fn wait_for_any_visible(
+        &self,
+        selectors: &[&str],
+        timeout_ms: u64,
+    ) -> Result<Element<'_>> {
         let start = std::time::Instant::now();
         let timeout = std::time::Duration::from_millis(timeout_ms);
 
@@ -1170,7 +1176,10 @@ impl Page {
         let mut idle_start: Option<std::time::Instant> = None;
 
         loop {
-            let pending: i32 = self.evaluate("window.__eoka_pending_requests || 0").await.unwrap_or(0);
+            let pending: i32 = self
+                .evaluate("window.__eoka_pending_requests || 0")
+                .await
+                .unwrap_or(0);
 
             if pending == 0 {
                 match idle_start {
@@ -1271,7 +1280,12 @@ impl Page {
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn with_retry<F, Fut, T>(&self, attempts: u32, delay_ms: u64, operation: F) -> Result<T>
+    pub async fn with_retry<F, Fut, T>(
+        &self,
+        attempts: u32,
+        delay_ms: u64,
+        operation: F,
+    ) -> Result<T>
     where
         F: Fn() -> Fut,
         Fut: std::future::Future<Output = Result<T>>,
@@ -1543,14 +1557,18 @@ impl<'a> Element<'a> {
         let html = self.page.session.get_outer_html(self.node_id).await?;
         let escaped_html = escape_js_string(&html);
 
-        let result = self.page.session.evaluate(&format!(
-            r#"(() => {{
+        let result = self
+            .page
+            .session
+            .evaluate(&format!(
+                r#"(() => {{
                 const div = document.createElement('div');
                 div.innerHTML = '{}';
                 return div.innerText || div.textContent || '';
             }})()"#,
-            escaped_html
-        )).await?;
+                escaped_html
+            ))
+            .await?;
 
         if let Some(value) = result.result.value {
             if let Some(s) = value.as_str() {
@@ -1560,32 +1578,24 @@ impl<'a> Element<'a> {
         Ok(String::new())
     }
 
-    /// Helper to evaluate JavaScript expression on this element
+    /// Helper to evaluate a JavaScript function on this element via Runtime.callFunctionOn
     ///
-    /// Uses focus internally, but restores focus afterward.
+    /// The function receives `this` bound to the element. Write expressions as
+    /// `function() { return this.tagName; }` style.
     async fn eval_on_element(&self, js_expr: &str) -> Result<serde_json::Value> {
-        // Save current active element
-        let result = self.page.session.evaluate(
-            "document.activeElement ? document.activeElement.id || document.activeElement.tagName : null"
-        ).await?;
-        let prev_focus = result.result.value.clone();
+        let object_id = self.page.session.resolve_node(self.node_id).await?;
 
-        // Focus our element
-        self.page.session.focus(self.node_id).await?;
+        // Wrap the expression in a function that uses `this` instead of `document.activeElement`
+        let func = format!(
+            "function() {{ return {}; }}",
+            js_expr.replace("document.activeElement", "this")
+        );
 
-        // Evaluate expression
-        let result = self.page.session.evaluate(js_expr).await?;
-
-        // Try to restore previous focus (best effort)
-        if let Some(serde_json::Value::String(ref id)) = prev_focus {
-            if !id.is_empty() && id != "BODY" && id != "HTML" {
-                let _ = self.page.execute(&format!(
-                    "document.getElementById('{}')?.focus()",
-                    escape_js_string(id)
-                )).await;
-            }
-        }
-
+        let result = self
+            .page
+            .session
+            .call_function_on(&object_id, &func)
+            .await?;
         Ok(result.result.value.unwrap_or(serde_json::Value::Null))
     }
 
@@ -1670,10 +1680,12 @@ impl<'a> Element<'a> {
     /// ```
     pub async fn get_attribute(&self, name: &str) -> Result<Option<String>> {
         let escaped_name = escape_js_string(name);
-        let value = self.eval_on_element(&format!(
-            "document.activeElement.getAttribute('{}')",
-            escaped_name
-        )).await?;
+        let value = self
+            .eval_on_element(&format!(
+                "document.activeElement.getAttribute('{}')",
+                escaped_name
+            ))
+            .await?;
 
         if value.is_null() {
             return Ok(None);
@@ -1686,9 +1698,9 @@ impl<'a> Element<'a> {
 
     /// Get the tag name of the element (e.g., "div", "input", "a")
     pub async fn tag_name(&self) -> Result<String> {
-        let value = self.eval_on_element(
-            "document.activeElement.tagName.toLowerCase()"
-        ).await?;
+        let value = self
+            .eval_on_element("document.activeElement.tagName.toLowerCase()")
+            .await?;
 
         if let Some(s) = value.as_str() {
             return Ok(s.to_string());
@@ -1698,9 +1710,9 @@ impl<'a> Element<'a> {
 
     /// Check if the element is enabled (not disabled)
     pub async fn is_enabled(&self) -> Result<bool> {
-        let value = self.eval_on_element(
-            "!document.activeElement.disabled"
-        ).await?;
+        let value = self
+            .eval_on_element("!document.activeElement.disabled")
+            .await?;
 
         if let Some(b) = value.as_bool() {
             return Ok(b);
@@ -1710,9 +1722,9 @@ impl<'a> Element<'a> {
 
     /// Check if a checkbox/radio is checked
     pub async fn is_checked(&self) -> Result<bool> {
-        let value = self.eval_on_element(
-            "document.activeElement.checked === true"
-        ).await?;
+        let value = self
+            .eval_on_element("document.activeElement.checked === true")
+            .await?;
 
         if let Some(b) = value.as_bool() {
             return Ok(b);
@@ -1722,9 +1734,9 @@ impl<'a> Element<'a> {
 
     /// Get the value of an input element
     pub async fn value(&self) -> Result<String> {
-        let value = self.eval_on_element(
-            "document.activeElement.value || ''"
-        ).await?;
+        let value = self
+            .eval_on_element("document.activeElement.value || ''")
+            .await?;
 
         if let Some(s) = value.as_str() {
             return Ok(s.to_string());
@@ -1735,10 +1747,12 @@ impl<'a> Element<'a> {
     /// Get computed CSS property value
     pub async fn css(&self, property: &str) -> Result<String> {
         let escaped = escape_js_string(property);
-        let value = self.eval_on_element(&format!(
-            "getComputedStyle(document.activeElement).getPropertyValue('{}')",
-            escaped
-        )).await?;
+        let value = self
+            .eval_on_element(&format!(
+                "getComputedStyle(document.activeElement).getPropertyValue('{}')",
+                escaped
+            ))
+            .await?;
 
         if let Some(s) = value.as_str() {
             return Ok(s.to_string());
@@ -1748,9 +1762,14 @@ impl<'a> Element<'a> {
 
     /// Scroll this element into view
     pub async fn scroll_into_view(&self) -> Result<()> {
-        self.page.session.focus(self.node_id).await?;
+        let object_id = self.page.session.resolve_node(self.node_id).await?;
         self.page
-            .execute("document.activeElement.scrollIntoView({ behavior: 'smooth', block: 'center' })")
-            .await
+            .session
+            .call_function_on(
+                &object_id,
+                "function() { this.scrollIntoView({ behavior: 'smooth', block: 'center' }); }",
+            )
+            .await?;
+        Ok(())
     }
 }

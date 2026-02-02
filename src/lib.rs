@@ -70,7 +70,9 @@ pub mod stealth;
 pub use browser::Browser;
 pub use error::{Error, Result};
 pub use network::{NetworkEvent, NetworkWatcher};
-pub use page::{BoundingBox, CapturedRequest, Element, FrameInfo, Page, PageState, ResponseBody, TextMatch};
+pub use page::{
+    BoundingBox, CapturedRequest, Element, FrameInfo, Page, PageState, ResponseBody, TextMatch,
+};
 pub use session::{BrowserSession, SessionCookie};
 pub use stealth::{Fingerprint, HumanSpeed};
 

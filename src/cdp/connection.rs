@@ -409,6 +409,54 @@ impl Session {
         Ok(result.outer_html)
     }
 
+    /// Resolve a DOM node to a Runtime remote object ID
+    pub async fn resolve_node(&self, node_id: i32) -> Result<String> {
+        let result: DOMResolveNodeResult = self
+            .send(
+                "DOM.resolveNode",
+                &DOMResolveNode {
+                    node_id: Some(node_id),
+                    backend_node_id: None,
+                    object_group: Some("eoka".to_string()),
+                },
+            )
+            .await?;
+        result
+            .object
+            .object_id
+            .ok_or_else(|| crate::error::Error::Cdp {
+                method: "DOM.resolveNode".to_string(),
+                code: -1,
+                message: "No object_id returned".to_string(),
+            })
+    }
+
+    /// Call a function on a remote object and return the result
+    pub async fn call_function_on(
+        &self,
+        object_id: &str,
+        function_declaration: &str,
+    ) -> Result<RuntimeEvaluateResult> {
+        let result: RuntimeCallFunctionOnResult = self
+            .send(
+                "Runtime.callFunctionOn",
+                &RuntimeCallFunctionOn {
+                    function_declaration: function_declaration.to_string(),
+                    object_id: Some(object_id.to_string()),
+                    arguments: None,
+                    silent: Some(true),
+                    return_by_value: Some(true),
+                    await_promise: Some(true),
+                },
+            )
+            .await?;
+        // Convert to RuntimeEvaluateResult for consistent API
+        Ok(RuntimeEvaluateResult {
+            result: result.result,
+            exception_details: result.exception_details,
+        })
+    }
+
     /// Focus an element
     pub async fn focus(&self, node_id: i32) -> Result<()> {
         self.send::<_, serde_json::Value>(

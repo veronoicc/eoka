@@ -880,6 +880,60 @@ pub struct ExceptionDetails {
     pub execution_context_id: Option<i32>,
 }
 
+/// Resolve a DOM node to a Runtime remote object
+#[derive(Debug, Clone, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DOMResolveNode {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub node_id: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub backend_node_id: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub object_group: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DOMResolveNodeResult {
+    #[serde(default)]
+    pub object: RemoteObject,
+}
+
+/// Call a function on a remote object
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeCallFunctionOn {
+    pub function_declaration: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub object_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub arguments: Option<Vec<CallArgument>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub silent: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub return_by_value: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub await_promise: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CallArgument {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub value: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub object_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeCallFunctionOnResult {
+    #[serde(default)]
+    pub result: RemoteObject,
+    #[serde(default)]
+    pub exception_details: Option<ExceptionDetails>,
+}
+
 // ============================================================================
 // Browser Domain - Basic browser info
 // ============================================================================

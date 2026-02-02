@@ -59,3 +59,7 @@ path = "examples/rebrowser_test.rs"
 [[example]]
 name = "request_capture"
 path = "examples/request_capture.rs"
+
+[[example]]
+name = "smoke"
+path = "examples/smoke.rs"
