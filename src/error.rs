@@ -36,9 +36,21 @@ pub enum Error {
     #[error("Navigation error: {0}")]
     Navigation(String),
 
-    /// Element not found
+    /// Element not found in DOM
     #[error("Element not found: {0}")]
     ElementNotFound(String),
+
+    /// Element exists in DOM but is not visible/rendered
+    #[error("Element not visible: '{selector}' exists in DOM but is not rendered (hidden, display:none, or off-screen)")]
+    ElementNotVisible { selector: String },
+
+    /// Element exists but cannot be interacted with
+    #[error("Element not interactive: '{selector}' is {reason}")]
+    ElementNotInteractive { selector: String, reason: String },
+
+    /// Frame/iframe not found
+    #[error("Frame not found: {0}")]
+    FrameNotFound(String),
 
     /// Timeout
     #[error("Timeout: {0}")]
@@ -63,6 +75,14 @@ pub enum Error {
     /// Binary patching error
     #[error("Patching error in {operation}: {message}")]
     Patching { operation: String, message: String },
+
+    /// Network error
+    #[error("Network error: {0}")]
+    Network(String),
+
+    /// Retry exhausted
+    #[error("Retry exhausted after {attempts} attempts: {last_error}")]
+    RetryExhausted { attempts: u32, last_error: String },
 }
 
 impl Error {
@@ -96,6 +116,40 @@ impl Error {
         Self::Patching {
             operation: operation.into(),
             message: message.into(),
+        }
+    }
+
+    /// Create an element not visible error
+    pub fn not_visible(selector: impl Into<String>) -> Self {
+        Self::ElementNotVisible {
+            selector: selector.into(),
+        }
+    }
+
+    /// Create an element not interactive error
+    pub fn not_interactive(selector: impl Into<String>, reason: impl Into<String>) -> Self {
+        Self::ElementNotInteractive {
+            selector: selector.into(),
+            reason: reason.into(),
+        }
+    }
+
+    /// Check if this is a "box model" error (element not visible)
+    pub fn is_not_visible(&self) -> bool {
+        match self {
+            Error::Cdp { message, .. } => message.contains("box model"),
+            Error::ElementNotVisible { .. } => true,
+            _ => false,
+        }
+    }
+
+    /// Convert CDP box model errors to friendlier ElementNotVisible
+    pub fn clarify(self, selector: &str) -> Self {
+        match &self {
+            Error::Cdp { message, .. } if message.contains("box model") => {
+                Error::not_visible(selector)
+            }
+            _ => self,
         }
     }
 }

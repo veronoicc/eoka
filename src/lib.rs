@@ -72,7 +72,7 @@ pub use annotate::{annotate_screenshot, AnnotationConfig, AnnotationError, Inter
 pub use browser::Browser;
 pub use error::{Error, Result};
 pub use network::{NetworkEvent, NetworkWatcher};
-pub use page::{CapturedRequest, Element, Page, ResponseBody};
+pub use page::{BoundingBox, CapturedRequest, Element, FrameInfo, Page, PageState, ResponseBody, TextMatch};
 pub use session::{BrowserSession, SessionCookie};
 pub use stealth::{Fingerprint, HumanSpeed};
 
@@ -101,6 +101,10 @@ pub struct StealthConfig {
     pub viewport_width: u32,
     /// Viewport height
     pub viewport_height: u32,
+    /// Debug mode - log actions and save screenshots on error
+    pub debug: bool,
+    /// Directory for debug screenshots (defaults to current directory)
+    pub debug_dir: Option<String>,
 }
 
 impl Default for StealthConfig {
@@ -117,6 +121,8 @@ impl Default for StealthConfig {
             patch_binary: true,
             viewport_width: 1920,
             viewport_height: 1080,
+            debug: false,
+            debug_dir: None,
         }
     }
 }
@@ -136,6 +142,8 @@ impl StealthConfig {
             patch_binary: false,
             viewport_width: 1920,
             viewport_height: 1080,
+            debug: false,
+            debug_dir: None,
         }
     }
 
@@ -143,6 +151,15 @@ impl StealthConfig {
     pub fn visible() -> Self {
         Self {
             headless: false,
+            ..Default::default()
+        }
+    }
+
+    /// Create a debug config (visible, with logging)
+    pub fn debug() -> Self {
+        Self {
+            headless: false,
+            debug: true,
             ..Default::default()
         }
     }

@@ -22,7 +22,7 @@ src/
 ├── browser.rs          # Chrome launcher, stealth args
 ├── page.rs             # Page abstraction, Element, request capture
 ├── session.rs          # Cookie import/export
-├── error.rs            # Error types
+├── error.rs            # Error types (ElementNotVisible, RetryExhausted, etc.)
 ├── cdp/
 │   ├── transport.rs    # WebSocket client + command filtering
 │   ├── connection.rs   # Browser/Session CDP wrappers
@@ -33,6 +33,68 @@ src/
     ├── human.rs        # Bezier curves, typing simulation
     └── fingerprint.rs  # User agent generation
 ```
+
+## Public API Overview
+
+### Browser
+- `Browser::launch()` / `Browser::launch_with_config(config)`
+- `browser.new_page(url)` - Create page and navigate
+- `browser.close()`
+
+### Page - Finding Elements
+- `page.find(selector)` / `page.find_all(selector)` - By CSS selector
+- `page.find_by_text(text)` - By visible text (prioritizes links/buttons)
+- `page.find_all_by_text(text)` - All elements with text
+- `page.find_any(&[selectors])` - First matching selector
+- `page.exists(selector)` / `page.text_exists(text)` - Check existence
+
+### Page - Clicking
+- `page.click(selector)` / `page.human_click(selector)` - Standard click
+- `page.click_by_text(text)` / `page.human_click_by_text(text)` - By text
+- `page.try_click(selector)` - Returns `Ok(false)` if not found/visible
+- `page.try_click_by_text(text)` / `page.try_human_click(selector)`
+
+### Page - Form Filling
+- `page.fill(selector, value)` - Clear and type
+- `page.human_fill(selector, value)` - Human-like clear and type
+- `page.type_into(selector, text)` - Type without clearing
+- `page.human_type(selector, text)` - Human-like typing
+
+### Page - Waiting
+- `page.wait_for(selector, timeout)` - Wait for element in DOM
+- `page.wait_for_visible(selector, timeout)` - Wait for element to be clickable
+- `page.wait_for_any(&[selectors], timeout)` - Wait for any selector
+- `page.wait_for_text(text, timeout)` - Wait for text to appear
+- `page.wait_for_url_contains(pattern, timeout)` - Wait for URL pattern
+- `page.wait_for_url_change(timeout)` - Wait for navigation
+- `page.wait_for_network_idle(idle_ms, timeout)` - Wait for XHR/fetch to complete
+- `page.wait(ms)` - Fixed delay
+
+### Page - Info & Debug
+- `page.url()` / `page.title()` / `page.content()` / `page.text()`
+- `page.screenshot()` / `page.screenshot_jpeg(quality)`
+- `page.debug_state()` - Returns `PageState` with element counts
+- `page.debug_screenshot(prefix)` - Timestamped screenshot
+
+### Page - JavaScript & Frames
+- `page.evaluate(js)` / `page.execute(js)` - Run JavaScript
+- `page.frames()` - List all frames
+- `page.evaluate_in_frame(frame_selector, js)` - JS in iframe (uses Function constructor, CSP-safe)
+
+### Page - Utilities
+- `page.with_retry(attempts, delay_ms, operation)` - Retry flaky operations
+- `page.cookies()` / `page.set_cookie()` / `page.delete_cookie()`
+
+### Element
+- `elem.click()` / `elem.human_click()` - Click
+- `elem.type_text(text)` / `elem.focus()` - Input
+- `elem.is_visible()` - Check if rendered (returns `Result<bool>`)
+- `elem.bounding_box()` - Get position/size (handles rotated elements)
+- `elem.get_attribute(name)` - Get attribute
+- `elem.tag_name()` / `elem.value()` / `elem.text()`
+- `elem.is_enabled()` / `elem.is_checked()` - State
+- `elem.css(property)` - Computed style
+- `elem.scroll_into_view()` - Scroll into viewport
 
 ## Key Design Decisions
 
@@ -49,11 +111,26 @@ CDP markers ($cdc_*) are hidden via Proxy on document object. See `src/stealth/e
 ### Navigator Prototype
 All navigator properties (webdriver, plugins, getBattery) are defined on `Navigator.prototype`, not the instance. This prevents detection via `Object.getOwnPropertyNames(navigator)`.
 
-### WebSocket Transport
-Uses std::net::TcpStream with blocking reader thread. WebSocket framing is hand-written (no external deps).
+### Text Finding Priority
+`find_by_text()` searches in two passes:
+1. Interactive elements: `a, button, input[type="submit"], [role="button"], [onclick]`
+2. Static elements: `div, span, p, label, h1-h6, li, td, th`
 
-### Binary Patching
-Uses Aho-Corasick for O(n) multi-pattern matching. Creates symlinked bundle on macOS to avoid copying entire .app.
+### Error Handling
+CDP "box model" errors are converted to friendly `ElementNotVisible` errors.
+Try-click methods return `Ok(false)` for both missing AND invisible elements.
+
+## Error Types
+
+```rust
+Error::ElementNotFound(selector)      // Not in DOM
+Error::ElementNotVisible { selector } // In DOM but not rendered
+Error::ElementNotInteractive { selector, reason }
+Error::Timeout(message)
+Error::RetryExhausted { attempts, last_error }
+Error::FrameNotFound(selector)
+Error::Cdp { method, code, message }  // Raw CDP error
+```
 
 ## Evasion Scripts
 
@@ -89,6 +166,12 @@ Located in `src/stealth/evasions.rs`:
 2. Add to `build_evasion_script()` function
 3. Test with `cargo run --example rebrowser_test`
 
+### Add new Page method
+1. Add method to `impl Page` in `src/page.rs`
+2. For text-based methods, use marker attribute pattern (data-eoka-text-match)
+3. Update README.md API reference
+4. Update this file
+
 ### Test detection bypass
 ```bash
 cargo run --example detection_test    # sannysoft, browserleaks, creepjs
@@ -107,3 +190,22 @@ Minimal by design:
 - `base64` - screenshot/response encoding
 - `thiserror` - error types
 - `tracing` - logging
+
+## Exported Types
+
+```rust
+pub use browser::Browser;
+pub use error::{Error, Result};
+pub use page::{
+    BoundingBox,      // Element position/size
+    CapturedRequest,  // Network request info
+    Element,          // DOM element wrapper
+    FrameInfo,        // Frame/iframe info
+    Page,             // Page abstraction
+    PageState,        // Debug info (url, title, element counts)
+    ResponseBody,     // Text or Binary response
+    TextMatch,        // Exact, Contains, StartsWith, EndsWith
+};
+pub use stealth::HumanSpeed;
+pub struct StealthConfig { ... }
+```
