@@ -115,6 +115,8 @@ pub struct StealthConfig {
     pub debug: bool,
     /// Directory for debug screenshots (defaults to current directory)
     pub debug_dir: Option<String>,
+    /// Proxy server URL (e.g. "http://127.0.0.1:8080" or "socks5://user:pass@host:port")
+    pub proxy: Option<String>,
 }
 
 impl Default for StealthConfig {
@@ -133,6 +135,7 @@ impl Default for StealthConfig {
             viewport_height: 1080,
             debug: false,
             debug_dir: None,
+            proxy: None,
         }
     }
 }
@@ -154,6 +157,7 @@ impl StealthConfig {
             viewport_height: 1080,
             debug: false,
             debug_dir: None,
+            proxy: None,
         }
     }
 

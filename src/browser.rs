@@ -66,6 +66,11 @@ fn stealth_args(config: &StealthConfig) -> Vec<String> {
         args.push("--headless=new".into());
     }
 
+    // Proxy
+    if let Some(ref proxy) = config.proxy {
+        args.push(format!("--proxy-server={}", proxy));
+    }
+
     args
 }
 
