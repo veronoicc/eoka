@@ -74,6 +74,14 @@ fn stealth_args(config: &StealthConfig) -> Vec<String> {
     args
 }
 
+/// Info about an open tab
+#[derive(Debug, Clone)]
+pub struct TabInfo {
+    pub id: String,
+    pub title: String,
+    pub url: String,
+}
+
 /// The main stealth browser
 pub struct Browser {
     connection: Connection,
@@ -200,6 +208,31 @@ impl Browser {
     pub async fn version(&self) -> Result<String> {
         let v = self.connection.version().await?;
         Ok(v.product)
+    }
+
+    /// List all open tabs
+    pub async fn tabs(&self) -> Result<Vec<TabInfo>> {
+        let targets = self.connection.get_targets().await?;
+        Ok(targets
+            .into_iter()
+            .filter(|t| t.r#type == "page")
+            .map(|t| TabInfo {
+                id: t.target_id,
+                title: t.title,
+                url: t.url,
+            })
+            .collect())
+    }
+
+    /// Activate (focus) a tab by target ID
+    pub async fn activate_tab(&self, target_id: &str) -> Result<()> {
+        self.connection.activate_target(target_id).await
+    }
+
+    /// Close a specific tab by target ID
+    pub async fn close_tab(&self, target_id: &str) -> Result<()> {
+        self.connection.close_target(target_id).await?;
+        Ok(())
     }
 
     /// Close the browser

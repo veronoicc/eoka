@@ -65,6 +65,11 @@ impl Page {
         &self.session
     }
 
+    /// Get the target ID for this page (tab identifier)
+    pub fn target_id(&self) -> &str {
+        self.session.target_id()
+    }
+
     /// Navigate to a URL
     pub async fn goto(&self, url: &str) -> Result<()> {
         let result = self.session.navigate(url).await?;

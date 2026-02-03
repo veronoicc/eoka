@@ -60,6 +60,12 @@ pub struct TargetGetTargetsResult {
     pub target_infos: Vec<TargetInfo>,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TargetActivateTarget {
+    pub target_id: String,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TargetInfo {

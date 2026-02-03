@@ -77,7 +77,7 @@ const _: () = {
 };
 
 // Re-exports
-pub use browser::Browser;
+pub use browser::{Browser, TabInfo};
 pub use error::{Error, Result};
 pub use network::{NetworkEvent, NetworkWatcher};
 pub use page::{

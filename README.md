@@ -242,6 +242,28 @@ page.with_retry(3, 500, || async {
 }).await?;
 ```
 
+### Multi-Tab
+
+```rust
+// Create multiple tabs
+let page1 = browser.new_page("https://a.com").await?;
+let page2 = browser.new_page("https://b.com").await?;
+
+// List all open tabs
+for tab in browser.tabs().await? {
+    println!("{}: {}", tab.id, tab.url);
+}
+
+// Get page's tab ID
+let id = page1.target_id();
+
+// Focus a tab
+browser.activate_tab(page1.target_id()).await?;
+
+// Close a specific tab
+browser.close_tab(page2.target_id()).await?;
+```
+
 ### File Uploads
 
 ```rust

@@ -696,3 +696,56 @@ async fn test_select_multiple() {
 
     browser.close().await.expect("Failed to close browser");
 }
+
+#[tokio::test]
+#[ignore = "requires Chrome"]
+async fn test_multi_tab() {
+    if !chrome_available() {
+        eprintln!("Chrome not found, skipping test");
+        return;
+    }
+
+    let browser = Browser::launch().await.expect("Failed to launch browser");
+
+    // Create two tabs
+    let page1 = browser
+        .new_page("data:text/html,<title>Tab1</title>")
+        .await
+        .expect("Failed to create page 1");
+    let page2 = browser
+        .new_page("data:text/html,<title>Tab2</title>")
+        .await
+        .expect("Failed to create page 2");
+
+    // Verify target IDs are different
+    assert_ne!(page1.target_id(), page2.target_id());
+
+    // List tabs - should have at least 2
+    let tabs = browser.tabs().await.expect("Failed to list tabs");
+    assert!(tabs.len() >= 2);
+
+    // Find our tabs
+    let tab1_found = tabs.iter().any(|t| t.id == page1.target_id());
+    let tab2_found = tabs.iter().any(|t| t.id == page2.target_id());
+    assert!(tab1_found, "Tab 1 not found in tabs list");
+    assert!(tab2_found, "Tab 2 not found in tabs list");
+
+    // Activate tab 1
+    browser
+        .activate_tab(page1.target_id())
+        .await
+        .expect("Failed to activate tab");
+
+    // Close tab 2
+    browser
+        .close_tab(page2.target_id())
+        .await
+        .expect("Failed to close tab");
+
+    // Verify tab 2 is gone
+    let tabs = browser.tabs().await.expect("Failed to list tabs");
+    let tab2_still_exists = tabs.iter().any(|t| t.id == page2.target_id());
+    assert!(!tab2_still_exists, "Tab 2 should be closed");
+
+    browser.close().await.expect("Failed to close browser");
+}

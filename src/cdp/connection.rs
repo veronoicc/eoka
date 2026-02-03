@@ -88,6 +88,28 @@ impl Connection {
         Ok(result.success)
     }
 
+    /// Get all targets (tabs)
+    pub async fn get_targets(&self) -> Result<Vec<TargetInfo>> {
+        let result: TargetGetTargetsResult = self
+            .transport
+            .send("Target.getTargets", &TargetGetTargets {})
+            .await?;
+        Ok(result.target_infos)
+    }
+
+    /// Activate (focus) a target
+    pub async fn activate_target(&self, target_id: &str) -> Result<()> {
+        self.transport
+            .send::<_, serde_json::Value>(
+                "Target.activateTarget",
+                &TargetActivateTarget {
+                    target_id: target_id.to_string(),
+                },
+            )
+            .await?;
+        Ok(())
+    }
+
     /// Close the browser
     pub async fn close(&self) -> Result<()> {
         let _ = self

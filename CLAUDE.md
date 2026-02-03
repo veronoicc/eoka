@@ -39,6 +39,9 @@ src/
 ### Browser
 - `Browser::launch()` / `Browser::launch_with_config(config)`
 - `browser.new_page(url)` - Create page and navigate
+- `browser.tabs()` - List all open tabs (returns `Vec<TabInfo>`)
+- `browser.activate_tab(id)` - Focus a tab
+- `browser.close_tab(id)` - Close a specific tab
 - `browser.close()`
 
 ### Page - Finding Elements
@@ -73,6 +76,7 @@ src/
 
 ### Page - Info & Debug
 - `page.url()` / `page.title()` / `page.content()` / `page.text()`
+- `page.target_id()` - Get tab identifier (for multi-tab)
 - `page.screenshot()` / `page.screenshot_jpeg(quality)`
 - `page.debug_state()` - Returns `PageState` with element counts
 - `page.debug_screenshot(prefix)` - Timestamped screenshot
@@ -210,7 +214,7 @@ Minimal by design:
 ## Exported Types
 
 ```rust
-pub use browser::Browser;
+pub use browser::{Browser, TabInfo};
 pub use error::{Error, Result};
 pub use page::{
     BoundingBox,      // Element position/size
