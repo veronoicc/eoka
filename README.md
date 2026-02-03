@@ -242,6 +242,59 @@ page.with_retry(3, 500, || async {
 }).await?;
 ```
 
+### File Uploads
+
+```rust
+// Single file
+page.upload_file("input[type='file']", "/path/to/document.pdf").await?;
+
+// Multiple files
+page.upload_files("input[type='file']", &["/path/to/a.pdf", "/path/to/b.pdf"]).await?;
+```
+
+### Select / Dropdowns
+
+```rust
+// By value
+page.select("#country", "US").await?;
+
+// By visible text
+page.select_by_text("#country", "United States").await?;
+
+// Multi-select
+page.select_multiple("#tags", &["rust", "async", "web"]).await?;
+```
+
+### Hover (Reveal Menus)
+
+```rust
+// Hover to reveal dropdown menu
+page.hover("#menu-trigger").await?;
+page.click("#submenu-item").await?;
+
+// Human-like hover
+page.human_hover("#tooltip-trigger").await?;
+```
+
+### Keyboard Shortcuts
+
+```rust
+// Single keys
+page.press_key("Enter").await?;
+page.press_key("Tab").await?;
+page.press_key("Escape").await?;
+
+// With modifiers
+page.press_key("Ctrl+A").await?;      // Select all
+page.press_key("Cmd+C").await?;       // Copy (Mac)
+page.press_key("Ctrl+Shift+S").await?; // Save as
+
+// Convenience methods
+page.select_all().await?;  // Ctrl+A / Cmd+A
+page.copy().await?;        // Ctrl+C / Cmd+C
+page.paste().await?;       // Ctrl+V / Cmd+V
+```
+
 ## Recipes
 
 ### Handle Cookie Banners

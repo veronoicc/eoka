@@ -607,4 +607,26 @@ impl Session {
         )
         .await
     }
+
+    /// Set files for a file input element
+    pub async fn set_file_input_files(&self, node_id: i32, files: Vec<String>) -> Result<()> {
+        self.send::<_, serde_json::Value>(
+            "DOM.setFileInputFiles",
+            &DOMSetFileInputFiles {
+                files,
+                node_id: Some(node_id),
+                backend_node_id: None,
+                object_id: None,
+            },
+        )
+        .await?;
+        Ok(())
+    }
+
+    /// Dispatch a key event with full modifier support
+    pub async fn dispatch_key_event_full(&self, event: InputDispatchKeyEventFull) -> Result<()> {
+        self.send::<_, serde_json::Value>("Input.dispatchKeyEvent", &event)
+            .await?;
+        Ok(())
+    }
 }

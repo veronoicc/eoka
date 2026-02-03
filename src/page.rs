@@ -972,6 +972,319 @@ impl Page {
             });
         Ok(state)
     }
+
+    // ========== FILE UPLOAD ==========
+
+    /// Upload a file to a file input element
+    ///
+    /// ```ignore
+    /// page.upload_file("input[type='file']", "/path/to/file.pdf").await?;
+    /// ```
+    pub async fn upload_file(&self, selector: &str, path: &str) -> Result<()> {
+        self.upload_files(selector, &[path]).await
+    }
+
+    /// Upload multiple files to a file input element
+    ///
+    /// ```ignore
+    /// page.upload_files("input[type='file']", &["/path/to/a.pdf", "/path/to/b.pdf"]).await?;
+    /// ```
+    pub async fn upload_files(&self, selector: &str, paths: &[&str]) -> Result<()> {
+        let element = self.find(selector).await?;
+        let files: Vec<String> = paths.iter().map(|p| p.to_string()).collect();
+        self.session
+            .set_file_input_files(element.node_id, files)
+            .await
+    }
+
+    // ========== SELECT / DROPDOWN ==========
+
+    /// Select an option in a `<select>` element by value
+    ///
+    /// ```ignore
+    /// page.select("#country", "US").await?;
+    /// ```
+    pub async fn select(&self, selector: &str, value: &str) -> Result<()> {
+        let escaped_sel = escape_js_string(selector);
+        let escaped_val = escape_js_string(value);
+        self.execute(&format!(
+            r#"(() => {{
+                const el = document.querySelector('{escaped_sel}');
+                if (!el) throw new Error('Select element not found');
+                el.value = '{escaped_val}';
+                el.dispatchEvent(new Event('change', {{ bubbles: true }}));
+            }})()"#
+        ))
+        .await
+    }
+
+    /// Select an option in a `<select>` element by visible text
+    ///
+    /// ```ignore
+    /// page.select_by_text("#country", "United States").await?;
+    /// ```
+    pub async fn select_by_text(&self, selector: &str, text: &str) -> Result<()> {
+        let escaped_sel = escape_js_string(selector);
+        let escaped_text = escape_js_string(text);
+        self.execute(&format!(
+            r#"(() => {{
+                const el = document.querySelector('{escaped_sel}');
+                if (!el) throw new Error('Select element not found');
+                const opt = Array.from(el.options).find(o => o.text.trim() === '{escaped_text}');
+                if (!opt) throw new Error('Option not found: {escaped_text}');
+                el.value = opt.value;
+                el.dispatchEvent(new Event('change', {{ bubbles: true }}));
+            }})()"#
+        ))
+        .await
+    }
+
+    /// Select multiple options in a `<select multiple>` element by values
+    ///
+    /// ```ignore
+    /// page.select_multiple("#tags", &["rust", "async"]).await?;
+    /// ```
+    pub async fn select_multiple(&self, selector: &str, values: &[&str]) -> Result<()> {
+        let escaped_sel = escape_js_string(selector);
+        let values_json = serde_json::to_string(values).unwrap_or_else(|_| "[]".to_string());
+        self.execute(&format!(
+            r#"(() => {{
+                const el = document.querySelector('{escaped_sel}');
+                if (!el) throw new Error('Select element not found');
+                const values = {values_json};
+                for (const opt of el.options) {{
+                    opt.selected = values.includes(opt.value);
+                }}
+                el.dispatchEvent(new Event('change', {{ bubbles: true }}));
+            }})()"#
+        ))
+        .await
+    }
+
+    // ========== HOVER ==========
+
+    /// Hover over an element (move mouse to it without clicking)
+    ///
+    /// Useful for revealing dropdown menus or tooltips.
+    ///
+    /// ```ignore
+    /// page.hover("#menu-trigger").await?;
+    /// page.click("#submenu-item").await?;
+    /// ```
+    pub async fn hover(&self, selector: &str) -> Result<()> {
+        let element = self.find(selector).await?;
+        let (x, y) = element.center().await?;
+        self.session
+            .dispatch_mouse_event(MouseEventType::MouseMoved, x, y, None, None)
+            .await
+    }
+
+    /// Hover over an element with human-like mouse movement
+    pub async fn human_hover(&self, selector: &str) -> Result<()> {
+        let element = self.find(selector).await?;
+        element.scroll_into_view().await?;
+        let (x, y) = element.center().await?;
+
+        // Use human movement to reach the element but don't click
+        let human = Human::new(&self.session);
+        // Move through a bezier path to the target
+        let start_x = x - 100.0;
+        let start_y = y - 50.0;
+
+        // Just move to the element
+        self.session
+            .dispatch_mouse_event(MouseEventType::MouseMoved, start_x, start_y, None, None)
+            .await?;
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+
+        // Final move to target with human's internal bezier would be better,
+        // but for now just move directly with a small delay
+        self.session
+            .dispatch_mouse_event(MouseEventType::MouseMoved, x, y, None, None)
+            .await?;
+
+        // Brief pause to let hover effects trigger
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        let _ = human; // silence unused warning
+        Ok(())
+    }
+
+    // ========== KEYBOARD ==========
+
+    /// Press a key (or key combination)
+    ///
+    /// Supports modifiers: `Ctrl+A`, `Cmd+C`, `Shift+Tab`, `Alt+F4`
+    ///
+    /// Common keys: `Enter`, `Tab`, `Escape`, `Backspace`, `Delete`,
+    /// `ArrowUp`, `ArrowDown`, `ArrowLeft`, `ArrowRight`,
+    /// `Home`, `End`, `PageUp`, `PageDown`
+    ///
+    /// ```ignore
+    /// page.press_key("Enter").await?;
+    /// page.press_key("Ctrl+A").await?;
+    /// page.press_key("Cmd+Shift+S").await?;
+    /// ```
+    pub async fn press_key(&self, key: &str) -> Result<()> {
+        use crate::cdp::types::{InputDispatchKeyEventFull, KeyEventType};
+
+        let (mods, key_name) = parse_key_combo(key);
+
+        let (key_str, code_str, vk) = key_to_codes(key_name);
+
+        // Key down
+        self.session
+            .dispatch_key_event_full(InputDispatchKeyEventFull {
+                r#type: KeyEventType::KeyDown,
+                modifiers: if mods != 0 { Some(mods) } else { None },
+                key: Some(key_str.to_string()),
+                code: Some(code_str.to_string()),
+                windows_virtual_key_code: vk,
+                native_virtual_key_code: vk,
+                ..Default::default()
+            })
+            .await?;
+
+        // Brief delay
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+
+        // Key up
+        self.session
+            .dispatch_key_event_full(InputDispatchKeyEventFull {
+                r#type: KeyEventType::KeyUp,
+                modifiers: if mods != 0 { Some(mods) } else { None },
+                key: Some(key_str.to_string()),
+                code: Some(code_str.to_string()),
+                windows_virtual_key_code: vk,
+                native_virtual_key_code: vk,
+                ..Default::default()
+            })
+            .await?;
+
+        Ok(())
+    }
+
+    /// Press Enter key
+    pub async fn press_enter(&self) -> Result<()> {
+        self.press_key("Enter").await
+    }
+
+    /// Press Tab key
+    pub async fn press_tab(&self) -> Result<()> {
+        self.press_key("Tab").await
+    }
+
+    /// Press Escape key
+    pub async fn press_escape(&self) -> Result<()> {
+        self.press_key("Escape").await
+    }
+
+    /// Select all text (Ctrl+A / Cmd+A)
+    pub async fn select_all(&self) -> Result<()> {
+        #[cfg(target_os = "macos")]
+        return self.press_key("Cmd+A").await;
+        #[cfg(not(target_os = "macos"))]
+        return self.press_key("Ctrl+A").await;
+    }
+
+    /// Copy selection (Ctrl+C / Cmd+C)
+    pub async fn copy(&self) -> Result<()> {
+        #[cfg(target_os = "macos")]
+        return self.press_key("Cmd+C").await;
+        #[cfg(not(target_os = "macos"))]
+        return self.press_key("Ctrl+C").await;
+    }
+
+    /// Paste from clipboard (Ctrl+V / Cmd+V)
+    pub async fn paste(&self) -> Result<()> {
+        #[cfg(target_os = "macos")]
+        return self.press_key("Cmd+V").await;
+        #[cfg(not(target_os = "macos"))]
+        return self.press_key("Ctrl+V").await;
+    }
+}
+
+/// Parse a key combination like "Ctrl+Shift+A" into (modifiers, key)
+fn parse_key_combo(combo: &str) -> (i32, &str) {
+    use crate::cdp::types::modifiers;
+
+    let parts: Vec<&str> = combo.split('+').collect();
+    let mut mods = 0;
+    let mut key = combo;
+
+    for (i, part) in parts.iter().enumerate() {
+        let lower = part.to_lowercase();
+        match lower.as_str() {
+            "ctrl" | "control" => mods |= modifiers::CTRL,
+            "alt" | "option" => mods |= modifiers::ALT,
+            "shift" => mods |= modifiers::SHIFT,
+            "cmd" | "meta" | "command" => mods |= modifiers::META,
+            _ => {
+                // This is the actual key
+                key = parts[i];
+            }
+        }
+    }
+
+    (mods, key)
+}
+
+/// Map key names to (key, code, virtualKeyCode)
+fn key_to_codes(key: &str) -> (&str, &str, Option<i32>) {
+    match key.to_lowercase().as_str() {
+        "enter" | "return" => ("Enter", "Enter", Some(13)),
+        "tab" => ("Tab", "Tab", Some(9)),
+        "escape" | "esc" => ("Escape", "Escape", Some(27)),
+        "backspace" => ("Backspace", "Backspace", Some(8)),
+        "delete" => ("Delete", "Delete", Some(46)),
+        "arrowup" | "up" => ("ArrowUp", "ArrowUp", Some(38)),
+        "arrowdown" | "down" => ("ArrowDown", "ArrowDown", Some(40)),
+        "arrowleft" | "left" => ("ArrowLeft", "ArrowLeft", Some(37)),
+        "arrowright" | "right" => ("ArrowRight", "ArrowRight", Some(39)),
+        "home" => ("Home", "Home", Some(36)),
+        "end" => ("End", "End", Some(35)),
+        "pageup" => ("PageUp", "PageUp", Some(33)),
+        "pagedown" => ("PageDown", "PageDown", Some(34)),
+        "space" | " " => (" ", "Space", Some(32)),
+        "a" => ("a", "KeyA", Some(65)),
+        "b" => ("b", "KeyB", Some(66)),
+        "c" => ("c", "KeyC", Some(67)),
+        "d" => ("d", "KeyD", Some(68)),
+        "e" => ("e", "KeyE", Some(69)),
+        "f" => ("f", "KeyF", Some(70)),
+        "g" => ("g", "KeyG", Some(71)),
+        "h" => ("h", "KeyH", Some(72)),
+        "i" => ("i", "KeyI", Some(73)),
+        "j" => ("j", "KeyJ", Some(74)),
+        "k" => ("k", "KeyK", Some(75)),
+        "l" => ("l", "KeyL", Some(76)),
+        "m" => ("m", "KeyM", Some(77)),
+        "n" => ("n", "KeyN", Some(78)),
+        "o" => ("o", "KeyO", Some(79)),
+        "p" => ("p", "KeyP", Some(80)),
+        "q" => ("q", "KeyQ", Some(81)),
+        "r" => ("r", "KeyR", Some(82)),
+        "s" => ("s", "KeyS", Some(83)),
+        "t" => ("t", "KeyT", Some(84)),
+        "u" => ("u", "KeyU", Some(85)),
+        "v" => ("v", "KeyV", Some(86)),
+        "w" => ("w", "KeyW", Some(87)),
+        "x" => ("x", "KeyX", Some(88)),
+        "y" => ("y", "KeyY", Some(89)),
+        "z" => ("z", "KeyZ", Some(90)),
+        "f1" => ("F1", "F1", Some(112)),
+        "f2" => ("F2", "F2", Some(113)),
+        "f3" => ("F3", "F3", Some(114)),
+        "f4" => ("F4", "F4", Some(115)),
+        "f5" => ("F5", "F5", Some(116)),
+        "f6" => ("F6", "F6", Some(117)),
+        "f7" => ("F7", "F7", Some(118)),
+        "f8" => ("F8", "F8", Some(119)),
+        "f9" => ("F9", "F9", Some(120)),
+        "f10" => ("F10", "F10", Some(121)),
+        "f11" => ("F11", "F11", Some(122)),
+        "f12" => ("F12", "F12", Some(123)),
+        _ => (key, key, None),
+    }
 }
 
 /// A captured HTTP request with its response

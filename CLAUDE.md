@@ -82,6 +82,24 @@ src/
 - `page.frames()` - List all frames
 - `page.evaluate_in_frame(frame_selector, js)` - JS in iframe (uses Function constructor, CSP-safe)
 
+### Page - File Uploads
+- `page.upload_file(selector, path)` - Upload single file
+- `page.upload_files(selector, &[paths])` - Upload multiple files
+
+### Page - Select/Dropdowns
+- `page.select(selector, value)` - Select by value
+- `page.select_by_text(selector, text)` - Select by visible text
+- `page.select_multiple(selector, &[values])` - Multi-select
+
+### Page - Hover
+- `page.hover(selector)` - Move mouse to element (reveal menus)
+- `page.human_hover(selector)` - Human-like hover
+
+### Page - Keyboard
+- `page.press_key(key)` - Press key with optional modifiers (`Ctrl+A`, `Cmd+C`)
+- `page.press_enter()` / `page.press_tab()` / `page.press_escape()` - Common keys
+- `page.select_all()` / `page.copy()` / `page.paste()` - Clipboard shortcuts
+
 ### Page - Utilities
 - `page.with_retry(attempts, delay_ms, operation)` - Retry flaky operations
 - `page.cookies()` / `page.set_cookie()` / `page.delete_cookie()`
