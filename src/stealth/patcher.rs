@@ -16,7 +16,7 @@ use crate::error::{Error, Result};
 
 // Thread-local RNG
 thread_local! {
-    static RNG: RefCell<rand::rngs::ThreadRng> = RefCell::new(rand::thread_rng());
+    static RNG: RefCell<rand::rngs::ThreadRng> = RefCell::new(rand::rng());
 }
 
 /// Patch pattern with replacement strategy
@@ -512,7 +512,7 @@ fn random_string(len: usize) -> String {
         let mut rng = rng.borrow_mut();
         (0..len)
             .map(|_| {
-                let idx = rng.gen_range(0..36u8);
+                let idx = rng.random_range(0..36u8);
                 if idx < 10 {
                     (b'0' + idx) as char
                 } else {

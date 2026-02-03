@@ -2,7 +2,7 @@
 //!
 //! Generates realistic, randomized browser fingerprints.
 
-use rand::seq::SliceRandom;
+use rand::prelude::IndexedRandom;
 use rand::Rng;
 
 /// Chrome versions (recent, realistic)
@@ -66,12 +66,12 @@ const SCREEN_RESOLUTIONS: &[(u32, u32)] = &[
 
 /// Generate a random realistic user agent
 pub fn random_user_agent() -> String {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     let chrome_version = CHROME_VERSIONS.choose(&mut rng).unwrap();
 
     // 70% Mac, 30% Windows
-    if rng.gen_bool(0.7) {
+    if rng.random_bool(0.7) {
         let macos = MACOS_VERSIONS.choose(&mut rng).unwrap();
         format!(
             "Mozilla/5.0 (Macintosh; Intel Mac OS X {}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{} Safari/537.36",
@@ -111,9 +111,9 @@ pub enum Platform {
 impl Fingerprint {
     /// Generate a random consistent fingerprint
     pub fn random() -> Self {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
 
-        let platform = if rng.gen_bool(0.7) {
+        let platform = if rng.random_bool(0.7) {
             Platform::MacOS
         } else {
             Platform::Windows

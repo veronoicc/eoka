@@ -14,7 +14,7 @@ use crate::error::Result;
 
 // Thread-local RNG
 thread_local! {
-    static RNG: RefCell<rand::rngs::ThreadRng> = RefCell::new(rand::thread_rng());
+    static RNG: RefCell<rand::rngs::ThreadRng> = RefCell::new(rand::rng());
 }
 
 /// Speed mode for human simulation
@@ -56,15 +56,15 @@ impl HumanSpeed {
 }
 
 fn random_range(min: u64, max: u64) -> u64 {
-    RNG.with(|rng| rng.borrow_mut().gen_range(min..max))
+    RNG.with(|rng| rng.borrow_mut().random_range(min..max))
 }
 
 fn random_f64_range(min: f64, max: f64) -> f64 {
-    RNG.with(|rng| rng.borrow_mut().gen_range(min..max))
+    RNG.with(|rng| rng.borrow_mut().random_range(min..max))
 }
 
 fn random_bool(probability: f64) -> bool {
-    RNG.with(|rng| rng.borrow_mut().gen_bool(probability))
+    RNG.with(|rng| rng.borrow_mut().random_bool(probability))
 }
 
 /// Point type
