@@ -96,9 +96,8 @@ src/
 - `page.human_hover(selector)` - Human-like hover
 
 ### Page - Keyboard
-- `page.press_key(key)` - Press key with optional modifiers (`Ctrl+A`, `Cmd+C`)
-- `page.press_enter()` / `page.press_tab()` / `page.press_escape()` - Common keys
-- `page.select_all()` / `page.copy()` / `page.paste()` - Clipboard shortcuts
+- `page.press_key(key)` - Press key with modifiers (`Enter`, `Ctrl+A`, `Cmd+C`)
+- `page.select_all()` / `page.copy()` / `page.paste()` - Platform-aware clipboard
 
 ### Page - Utilities
 - `page.with_retry(attempts, delay_ms, operation)` - Retry flaky operations

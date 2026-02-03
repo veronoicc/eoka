@@ -592,7 +592,7 @@ async fn test_press_key() {
     assert_eq!(key, "Enter");
 
     // Press Tab
-    page.press_tab().await.expect("Failed to press tab");
+    page.press_key("Tab").await.expect("Failed to press tab");
 
     let key: String = page
         .evaluate("window.lastKey")
