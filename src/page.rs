@@ -387,8 +387,12 @@ impl Page {
         element.click().await?;
         tokio::time::sleep(std::time::Duration::from_millis(50)).await;
 
-        // Select all and delete to clear the field
-        self.execute("document.activeElement.select()").await?;
+        // Focus + select via selector (don't rely on activeElement — popups can steal focus)
+        let escaped = escape_js_string(selector);
+        self.execute(&format!(
+            "(() => {{ const el = document.querySelector('{}'); if (el) {{ el.focus(); el.select(); }} }})()",
+            escaped
+        )).await?;
         self.session.insert_text("").await?;
 
         // Now type the new value
@@ -491,9 +495,28 @@ impl Page {
         Ok(serde_json::from_value(value)?)
     }
 
+    /// Evaluate JavaScript synchronously (don't await promises).
+    /// Use when the page may have unresolved promises that block normal evaluate.
+    pub async fn evaluate_sync<T: serde::de::DeserializeOwned>(
+        &self,
+        expression: &str,
+    ) -> Result<T> {
+        let result = self.check_js_result(self.session.evaluate_sync(expression).await?)?;
+        let value = result
+            .value
+            .ok_or_else(|| Error::CdpSimple("No value returned from evaluate_sync".into()))?;
+        Ok(serde_json::from_value(value)?)
+    }
+
     /// Execute JavaScript without expecting a return value
     pub async fn execute(&self, expression: &str) -> Result<()> {
         self.check_js_result(self.session.evaluate(expression).await?)?;
+        Ok(())
+    }
+
+    /// Execute JavaScript synchronously (don't await promises)
+    pub async fn execute_sync(&self, expression: &str) -> Result<()> {
+        self.check_js_result(self.session.evaluate_sync(expression).await?)?;
         Ok(())
     }
 

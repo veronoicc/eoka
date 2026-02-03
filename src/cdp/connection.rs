@@ -519,7 +519,8 @@ impl Session {
         &self,
         expression: &str,
     ) -> Result<RuntimeEvaluateResult> {
-        self.evaluate_impl(expression, false, Some("eoka")).await
+        self.evaluate_impl(expression, false, Some("eoka"), true)
+            .await
     }
 
     /// Convert a remote object ID to a DOM node_id via DOM.requestNode
@@ -579,7 +580,13 @@ impl Session {
 
     /// Evaluate JavaScript expression and return the result by value
     pub async fn evaluate(&self, expression: &str) -> Result<RuntimeEvaluateResult> {
-        self.evaluate_impl(expression, true, None).await
+        self.evaluate_impl(expression, true, None, true).await
+    }
+
+    /// Evaluate JavaScript synchronously (don't await promises).
+    /// Use this when the page may have unresolved promises that would block.
+    pub async fn evaluate_sync(&self, expression: &str) -> Result<RuntimeEvaluateResult> {
+        self.evaluate_impl(expression, true, None, false).await
     }
 
     async fn evaluate_impl(
@@ -587,6 +594,7 @@ impl Session {
         expression: &str,
         return_by_value: bool,
         object_group: Option<&str>,
+        await_promise: bool,
     ) -> Result<RuntimeEvaluateResult> {
         self.send(
             "Runtime.evaluate",
@@ -594,7 +602,7 @@ impl Session {
                 expression: expression.to_string(),
                 object_group: object_group.map(String::from),
                 return_by_value: Some(return_by_value),
-                await_promise: Some(true),
+                await_promise: Some(await_promise),
             },
         )
         .await
