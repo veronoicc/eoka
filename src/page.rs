@@ -179,6 +179,9 @@ impl Page {
         text: &str,
         match_type: TextMatch,
     ) -> Result<Element<'_>> {
+        // Ensure DOM agent is initialized so requestNode works
+        self.session.get_document(Some(0)).await?;
+
         let escaped_text = escape_js_string(text);
         let match_js = match match_type {
             TextMatch::Exact => format!("t.trim() === '{}'", escaped_text),
@@ -258,6 +261,9 @@ impl Page {
 
     /// Find all elements matching the given text
     pub async fn find_all_by_text(&self, text: &str) -> Result<Vec<Element<'_>>> {
+        // Ensure DOM agent is initialized so requestNode works
+        self.session.get_document(Some(0)).await?;
+
         let escaped_text = escape_js_string(text).to_lowercase();
 
         let js = format!(
