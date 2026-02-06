@@ -204,14 +204,27 @@ impl Page {
             r#"
             (() => {{
                 const interactive = 'a, button, input[type="submit"], input[type="button"], [role="button"], [onclick]';
-                for (const el of document.querySelectorAll(interactive)) {{
-                    const t = el.innerText || el.textContent || el.value || '';
-                    if ({match_js}) return el;
-                }}
                 const secondary = 'label, span, div, p, h1, h2, h3, h4, h5, h6, li, td, th';
-                for (const el of document.querySelectorAll(secondary)) {{
+                const all = interactive + ', ' + secondary;
+
+                function check(el) {{
                     const t = el.innerText || el.textContent || el.value || '';
-                    if ({match_js}) return el;
+                    return {match_js};
+                }}
+
+                function findDeepest(root) {{
+                    const children = root.querySelectorAll(all);
+                    for (const child of children) {{
+                        if (check(child)) return findDeepest(child);
+                    }}
+                    return root;
+                }}
+
+                for (const el of document.querySelectorAll(interactive)) {{
+                    if (check(el)) return findDeepest(el);
+                }}
+                for (const el of document.querySelectorAll(secondary)) {{
+                    if (check(el)) return findDeepest(el);
                 }}
                 return null;
             }})()
@@ -259,7 +272,7 @@ impl Page {
                         matches.push(el);
                     }}
                 }}
-                return matches;
+                return matches.filter(el => !matches.some(other => el !== other && el.contains(other)));
             }})()
             "#,
             escaped_text = escaped_text
